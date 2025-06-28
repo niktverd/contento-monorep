@@ -1,3 +1,6 @@
+// eslint-disable-next-line import/order, import/no-extraneous-dependencies
+import 'module-alias/register';
+
 import {Worker} from '@temporalio/worker';
 import dotenv from 'dotenv';
 
