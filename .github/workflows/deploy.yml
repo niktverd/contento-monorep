@@ -136,9 +136,26 @@ jobs:
           export APP_ID="${APP_ID}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
-          export GOOGLE_APPLICATION_CREDENTIALS=$(printf %q "${GOOGLE_APPLICATION_CREDENTIALS}")
-          export FIREBASE_CONFIG=$(printf %q "${FIREBASE_CONFIG}")
+          export GOOGLE_APPLICATION_CREDENTIALS=$(echo "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -d)
+          export FIREBASE_CONFIG=$(echo "${FIREBASE_CONFIG}" | base64 -d)
           export DOCKER_IMAGE="${DOCKER_IMAGE}"
+
+          # Validate decoded credentials
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ] || [ -z "$FIREBASE_CONFIG" ]; then
+            echo "❌ Failed to decode credentials from base64"
+            exit 1
+          fi
+
+          # Simple JSON validation (check if starts with {)
+          if [[ ! "$GOOGLE_APPLICATION_CREDENTIALS" =~ ^\{ ]]; then
+            echo "❌ GOOGLE_APPLICATION_CREDENTIALS doesn't look like JSON"
+            exit 1
+          fi
+
+          if [[ ! "$FIREBASE_CONFIG" =~ ^\{ ]]; then
+            echo "❌ FIREBASE_CONFIG doesn't look like JSON" 
+            exit 1
+          fi
 
           # Construct DATABASE_URL with password
           export DATABASE_URL="postgresql://temporal:${POSTGRES_PASSWORD}@postgresql:5432/temporal"
@@ -179,8 +196,8 @@ jobs:
              TEMPORAL_UI_PASSWORD='${TEMPORAL_UI_PASSWORD}' \
              APP_ID='${APP_ID}' \
              API_SECRET='${API_SECRET}' \
-             GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}" \
-             FIREBASE_CONFIG="${FIREBASE_CONFIG}" \
+             GOOGLE_APPLICATION_CREDENTIALS=$(printf %s "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -w 0) \
+             FIREBASE_CONFIG=$(printf %s "${FIREBASE_CONFIG}" | base64 -w 0) \
              GCP_PROJECT_ID='${GCP_PROJECT_ID}' \
              DOCKER_IMAGE='${DOCKER_IMAGE}' \
              DATABASE_URL='${DATABASE_URL}' \
