@@ -198,6 +198,9 @@ jobs:
           echo "🚀 Starting Application and Workers..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker
 
+          echo "🚀 Initializing SSL certificates..."
+          /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh ${HETZNER_SERVER_HOST} admin@${HETZNER_SERVER_HOST}
+
           echo "🚀 Starting NGINX Proxy..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d nginx
 

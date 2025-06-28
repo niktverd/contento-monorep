@@ -79,11 +79,11 @@ check_container_health() {
 check_postgres_connectivity() {
     log_info "Testing PostgreSQL connectivity..."
     
-    # Test database connection from temporal server
-    if docker exec temporal-prod pg_isready -h postgresql -p 5432 -U temporal 2>/dev/null; then
-        log_success "Temporal → PostgreSQL connection: OK"
+    # Test database connection from PostgreSQL container itself
+    if docker exec postgres-prod pg_isready -U temporal 2>/dev/null; then
+        log_success "PostgreSQL server is ready"
     else
-        log_error "Temporal → PostgreSQL connection: FAILED"
+        log_error "PostgreSQL server not ready"
         return 1
     fi
     
@@ -98,6 +98,14 @@ check_postgres_connectivity() {
         log_success "App → PostgreSQL connection: OK"
     else
         log_error "App → PostgreSQL connection: FAILED"
+        return 1
+    fi
+    
+    # Test if Temporal can access the database via network connection
+    if docker exec temporal-prod sh -c "nc -z postgresql 5432" 2>/dev/null; then
+        log_success "Temporal → PostgreSQL network connection: OK"
+    else
+        log_error "Temporal → PostgreSQL network connection: FAILED"
         return 1
     fi
 }
