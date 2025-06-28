@@ -49,6 +49,9 @@ check_container_running() {
         return 0
     else
         log_error "Container $container_name is not running"
+        log_info "--- Last 50 lines of logs for $container_name ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 "$container_name" || true
+        log_info "------------------------------------------------"
         return 1
     fi
 }
@@ -66,6 +69,9 @@ check_container_health() {
         return 0
     else
         log_error "Container $container_name health status: $health_status"
+        log_info "--- Last 50 lines of logs for $container_name ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 "$container_name" || true
+        log_info "------------------------------------------------"
         return 1
     fi
 }
