@@ -124,7 +124,7 @@ jobs:
           DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
         run: |
           # Create secure deployment script with environment variables
-          cat > deploy_script.sh << DEPLOY_EOF
+          cat > deploy_script.sh << 'DEPLOY_EOF'
           #!/bin/bash
           set -e
 
@@ -136,24 +136,40 @@ jobs:
           export APP_ID="${APP_ID}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
-          export GOOGLE_APPLICATION_CREDENTIALS=$(echo "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -d)
-          export FIREBASE_CONFIG=$(echo "${FIREBASE_CONFIG}" | base64 -d)
+
+          # Handle credentials - check if they are base64 encoded or direct JSON
+          if [[ "${GOOGLE_APPLICATION_CREDENTIALS}" =~ ^[A-Za-z0-9+/]*={0,2}$ ]] && [ ${#GOOGLE_APPLICATION_CREDENTIALS} -gt 100 ]; then
+            # Looks like base64, decode it
+            export GOOGLE_APPLICATION_CREDENTIALS=$(echo "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -d)
+          else
+            # Already JSON, use directly
+            export GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}"
+          fi
+
+          if [[ "${FIREBASE_CONFIG}" =~ ^[A-Za-z0-9+/]*={0,2}$ ]] && [ ${#FIREBASE_CONFIG} -gt 100 ]; then
+            # Looks like base64, decode it
+            export FIREBASE_CONFIG=$(echo "${FIREBASE_CONFIG}" | base64 -d)
+          else
+            # Already JSON, use directly
+            export FIREBASE_CONFIG="${FIREBASE_CONFIG}"
+          fi
+
           export DOCKER_IMAGE="${DOCKER_IMAGE}"
 
-          # Validate decoded credentials
+          # Validate credentials exist
           if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ] || [ -z "$FIREBASE_CONFIG" ]; then
-            echo "❌ Failed to decode credentials from base64"
+            echo "❌ Credentials are empty"
             exit 1
           fi
 
           # Simple JSON validation (check if starts with {)
           if [[ ! "$GOOGLE_APPLICATION_CREDENTIALS" =~ ^\{ ]]; then
-            echo "❌ GOOGLE_APPLICATION_CREDENTIALS doesn't look like JSON"
+            echo "❌ GOOGLE_APPLICATION_CREDENTIALS doesn't look like JSON: ${GOOGLE_APPLICATION_CREDENTIALS:0:50}..."
             exit 1
           fi
 
           if [[ ! "$FIREBASE_CONFIG" =~ ^\{ ]]; then
-            echo "❌ FIREBASE_CONFIG doesn't look like JSON" 
+            echo "❌ FIREBASE_CONFIG doesn't look like JSON: ${FIREBASE_CONFIG:0:50}..."
             exit 1
           fi
 
@@ -196,8 +212,8 @@ jobs:
              TEMPORAL_UI_PASSWORD='${TEMPORAL_UI_PASSWORD}' \
              APP_ID='${APP_ID}' \
              API_SECRET='${API_SECRET}' \
-             GOOGLE_APPLICATION_CREDENTIALS=$(printf %s "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -w 0) \
-             FIREBASE_CONFIG=$(printf %s "${FIREBASE_CONFIG}" | base64 -w 0) \
+             GOOGLE_APPLICATION_CREDENTIALS='${GOOGLE_APPLICATION_CREDENTIALS}' 
+             FIREBASE_CONFIG='${FIREBASE_CONFIG}' \
              GCP_PROJECT_ID='${GCP_PROJECT_ID}' \
              DOCKER_IMAGE='${DOCKER_IMAGE}' \
              DATABASE_URL='${DATABASE_URL}' \
