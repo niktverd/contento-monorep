@@ -124,7 +124,7 @@ jobs:
           DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
         run: |
           # Create secure deployment script with environment variables
-          cat > deploy_script.sh << 'DEPLOY_EOF'
+          cat > deploy_script.sh << DEPLOY_EOF
           #!/bin/bash
           set -e
 
@@ -136,8 +136,8 @@ jobs:
           export APP_ID="${APP_ID}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
-          export GOOGLE_APPLICATION_CREDENTIALS='${GOOGLE_APPLICATION_CREDENTIALS}'
-          export FIREBASE_CONFIG='${FIREBASE_CONFIG}'
+          export GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}"
+          export FIREBASE_CONFIG="${FIREBASE_CONFIG}"
           export DOCKER_IMAGE="${DOCKER_IMAGE}"
 
           # Construct DATABASE_URL with password
