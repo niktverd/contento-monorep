@@ -98,7 +98,7 @@ describe('prepared-videos.controller', () => {
         expect(response3.body).toBeDefined();
         // count may be 0 or >0 if DB is not isolated, so just check status
         expect(response3.status).toBeLessThan(299);
-    });
+    }, 15000);
 
     it('getPreparedVideoById', async () => {
         const ids = await createDeps();

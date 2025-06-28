@@ -8,6 +8,266 @@ A service to download and process Instagram videos.
 
 - If there are more than 20 hashtags in a caption, media will be published, but caption will be empty.
 
+## Production Deployment (Hetzner/Self-Hosted)
+
+### Architecture
+
+The production deployment uses Docker Compose to orchestrate a multi-container Temporal stack:
+
+- **PostgreSQL**: Database for both application and Temporal data
+- **Temporal Server**: Workflow orchestration engine with 7-day retention
+- **Temporal UI**: Web interface for workflow monitoring
+- **Application**: Main API server (Node.js/Express)
+- **Downloading Worker**: Handles video download workflows
+- **Processing Worker**: Handles video processing workflows
+- **NGINX**: Reverse proxy with SSL termination and basic auth
+
+### Prerequisites
+
+1. **Server Requirements**:
+
+   - Ubuntu 20.04+ or similar Linux distribution
+   - Minimum 64 GB RAM, 8 CPU cores
+   - 500 GB SSD storage
+   - Docker & Docker Compose v2+ installed
+
+2. **Domain & SSL**:
+
+   - Domain name pointed to your server
+   - Let's Encrypt certificates (automated setup included)
+
+3. **GitHub Secrets**: Configure secrets for CI/CD deployment (see `docs/github-secrets-setup.md`)
+
+### Initial Server Setup
+
+1. **Install Docker**:
+
+   ```bash
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   sudo usermod -aG docker $USER
+   # Log out and back in
+   ```
+
+2. **Create deployment directory**:
+
+   ```bash
+   sudo mkdir -p /opt/instagram-video-downloader
+   sudo chown $USER:$USER /opt/instagram-video-downloader
+   cd /opt/instagram-video-downloader
+   ```
+
+3. **Clone repository**:
+   ```bash
+   git clone https://github.com/your-username/instagram-video-downloader.git .
+   ```
+
+### Environment Configuration
+
+1. **Copy and configure environment file**:
+
+   ```bash
+   cp .env.production .env.production.local
+   ```
+
+2. **Edit critical variables**:
+
+   ```bash
+   nano .env.production.local
+   ```
+
+   Key variables to configure:
+
+   - `POSTGRES_PASSWORD`: Strong database password
+   - `TEMPORAL_UI_PASSWORD`: Password for Temporal UI access
+   - `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_ACCESS_TOKEN`
+   - `FIREBASE_CONFIG`: Firebase configuration JSON
+   - `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY_PATH`
+
+### SSL Certificates Setup
+
+1. **Generate Let's Encrypt certificates**:
+
+   ```bash
+   # Install certbot
+   sudo apt update && sudo apt install -y certbot
+
+   # Generate certificates
+   sudo certbot certonly --standalone \
+     -d your-domain.com \
+     --email your-email@example.com \
+     --agree-tos \
+     --non-interactive
+   ```
+
+2. **Copy certificates to docker volume**:
+   ```bash
+   sudo mkdir -p /opt/instagram-video-downloader/certs
+   sudo cp /etc/letsencrypt/live/your-domain.com/* /opt/instagram-video-downloader/certs/
+   sudo chown -R $USER:$USER /opt/instagram-video-downloader/certs
+   ```
+
+### Deployment
+
+1. **Build production images**:
+
+   ```bash
+   docker build -f Dockerfile.prod -t instagram-video-downloader:latest .
+   ```
+
+2. **Start the stack**:
+
+   ```bash
+   # Start database first
+   docker compose -f docker-compose.prod.yml --env-file .env.production.local up -d postgresql
+
+   # Wait for database to be ready
+   docker compose -f docker-compose.prod.yml --env-file .env.production.local exec postgresql pg_isready -U temporal
+
+   # Start Temporal services
+   docker compose -f docker-compose.prod.yml --env-file .env.production.local up -d temporal temporal-ui
+
+   # Start application and workers
+   docker compose -f docker-compose.prod.yml --env-file .env.production.local up -d app downloading-worker processing-worker
+
+   # Start NGINX proxy
+   docker compose -f docker-compose.prod.yml --env-file .env.production.local up -d nginx
+   ```
+
+3. **Verify deployment**:
+
+   ```bash
+   # Run health checks
+   ./scripts/health-check.sh
+
+   # Check container status
+   docker compose -f docker-compose.prod.yml ps
+   ```
+
+### CI/CD Deployment
+
+For automated deployments, use the GitHub Actions workflow:
+
+1. Configure GitHub repository secrets (see `docs/github-secrets-setup.md`)
+2. Push to `main` branch or manually trigger workflow
+3. The workflow will:
+   - Build and push Docker images to GitHub Container Registry
+   - Deploy to production server via SSH
+   - Run health checks and communication verification
+   - Test staging environment before production (if configured)
+
+### Monitoring & Access
+
+- **Application API**: `https://your-domain.com`
+- **Temporal UI**: `https://your-domain.com/temporal` (requires basic auth)
+- **Health endpoint**: `https://your-domain.com/health`
+- **Metrics**: `https://your-domain.com/metrics`
+
+### Backup & Restore
+
+Daily automated backups are configured for PostgreSQL:
+
+```bash
+# Manual backup
+docker compose -f docker-compose.prod.yml exec postgresql /docker-entrypoint-initdb.d/backup.sh
+
+# View backup files
+ls -la docker/postgres/backups/
+
+# Restore from backup
+docker compose -f docker-compose.prod.yml exec postgresql psql -U temporal -d temporal < /path/to/backup.sql
+```
+
+### Troubleshooting
+
+#### Container Health Issues
+
+1. **Check container status**:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml ps
+   docker compose -f docker-compose.prod.yml logs [service-name]
+   ```
+
+2. **Common issues**:
+   - **Database connection failures**: Check `POSTGRES_PASSWORD` and network connectivity
+   - **Temporal startup issues**: Ensure PostgreSQL is healthy before starting Temporal
+   - **Worker connection issues**: Verify `TEMPORAL_ADDRESS` is correct
+   - **NGINX SSL issues**: Check certificate paths and domain configuration
+
+#### Resource Monitoring
+
+```bash
+# Container resource usage
+docker stats
+
+# System resources
+htop
+df -h
+free -h
+
+# Check specific container logs
+docker logs -f [container-name]
+```
+
+#### Network Connectivity
+
+```bash
+# Test internal service connectivity
+docker compose -f docker-compose.prod.yml exec app npm run tsx scripts/verify-communication.ts
+
+# Test external endpoints
+curl -k https://your-domain.com/health
+curl -k https://your-domain.com/metrics
+```
+
+#### Performance Issues
+
+1. **High memory usage**: Check worker concurrency settings in `.env.production.local`
+2. **Slow API responses**: Monitor application logs and database performance
+3. **Worker queue backlog**: Check Temporal UI for workflow status and adjust worker resources
+
+#### SSL Certificate Renewal
+
+```bash
+# Renew certificates
+sudo certbot renew --quiet
+
+# Update docker volumes (add to crontab)
+sudo cp /etc/letsencrypt/live/your-domain.com/* /opt/instagram-video-downloader/certs/
+docker compose -f docker-compose.prod.yml restart nginx
+```
+
+#### Database Issues
+
+```bash
+# Check database connectivity
+docker compose -f docker-compose.prod.yml exec postgresql pg_isready -U temporal
+
+# Access database shell
+docker compose -f docker-compose.prod.yml exec postgresql psql -U temporal -d temporal
+
+# View database logs
+docker compose -f docker-compose.prod.yml logs postgresql
+```
+
+### Security Considerations
+
+1. **Firewall configuration**: Only expose ports 80/443, block direct access to other services
+2. **Regular updates**: Keep Docker images and host system updated
+3. **Secret management**: Never commit secrets to version control
+4. **Access control**: Use strong passwords for database and Temporal UI
+5. **Monitoring**: Set up log aggregation and alerting for production issues
+
+### Scaling
+
+For high-traffic deployments:
+
+1. **Horizontal scaling**: Deploy multiple worker instances
+2. **Database optimization**: Consider read replicas or connection pooling
+3. **Load balancing**: Use multiple application server instances behind a load balancer
+4. **Monitoring**: Implement comprehensive metrics and alerting
+
 ## Deployment to Google Cloud Run
 
 ### Prerequisites
@@ -242,3 +502,45 @@ await p1.run('output.mp4');
 ## Тесты
 
 См. `src/tests/optimized-primitives-demo.test.ts` для примеров тестов на concat, фильтры и работу с несколькими входами.
+
+## Environment variables
+
+The environment variables are managed through a `.env` file. You can create a copy of the `.env.example` file and name it `.env`.
+
+## Local Development
+
+### Prerequisites
+
+- Docker or Podman with Docker Compose v2+
+- make (GNU make)
+
+### Full stack (API + Temporal)
+
+```bash
+make dev
+```
+
+• API → http://localhost:3030  
+• Temporal UI → http://localhost:8080
+
+### App-only mode (external Temporal)
+
+```bash
+export TEMPORAL_ADDRESS=your-temporal-host:7233
+make dev-app
+```
+
+### Useful helpers
+
+```bash
+make stop          # stop all containers
+make logs          # last 100 log lines from every service
+make logs-follow   # follow logs live
+make health        # basic health checks
+```
+
+The full set of developer commands is documented in `docs/DEVELOPMENT_COMMANDS.md`.
+
+---
+
+## Testing

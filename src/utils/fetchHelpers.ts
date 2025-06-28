@@ -20,6 +20,7 @@ const prepareFetchUrl = (
     query: Record<string, string | number | boolean | string[] | null>,
 ) => {
     const searchParams = objectToSearchParams(query);
+    console.log('prepareFetchUrl', 'process.env', process.env);
 
     const url = `${API_ENDPOINT}/api${route}?${searchParams} `;
     // eslint-disable-next-line no-console

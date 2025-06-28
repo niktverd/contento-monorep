@@ -4,6 +4,7 @@ import chorRoutes from './sections/chore/routes';
 import cloudRunRoutes from './sections/cloud-run/routes';
 import instagramRoutes from './sections/instagram/routes';
 import pubsubRoutes from './sections/pubsub/routes';
+import temporalRoutes from './sections/temporal/routes';
 import uiRoutes from './sections/ui/routes';
 import youtubeRoutes from './sections/youtube/routes';
 
@@ -15,6 +16,7 @@ router.use('/cloud-run', cloudRunRoutes);
 router.use('/pubsub', pubsubRoutes);
 router.use('/instagram', instagramRoutes);
 router.use('/youtube', youtubeRoutes);
+router.use('/temporal', temporalRoutes);
 router.use('/', chorRoutes);
 
 export default router;

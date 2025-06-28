@@ -1,0 +1,92 @@
+import {Worker} from '@temporalio/worker';
+import dotenv from 'dotenv';
+
+import {processVideo} from '../src/temporal/activities';
+
+dotenv.config();
+
+// Production configuration
+const SHUTDOWN_TIMEOUT = parseInt(process.env.WORKER_SHUTDOWN_TIMEOUT || '30000', 10);
+
+let isShuttingDown = false;
+
+// Enhanced graceful shutdown handler
+async function gracefulShutdown(worker: Worker, signal: string) {
+    if (isShuttingDown) {
+        console.log('⚠️ Shutdown already in progress, ignoring signal');
+        return;
+    }
+
+    isShuttingDown = true;
+    console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+
+    try {
+        // Shutdown worker with timeout
+        await Promise.race([
+            worker.shutdown(),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Worker shutdown timeout')), SHUTDOWN_TIMEOUT),
+            ),
+        ]);
+
+        console.log('✅ Processing worker shutdown complete');
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Error during worker shutdown:', error);
+        process.exit(1);
+    }
+}
+
+async function startWorker() {
+    console.log('🚀 Starting Temporal processing worker...');
+
+    try {
+        const worker = await Worker.create({
+            taskQueue: 'video-processing',
+            workflowsPath: require.resolve('../src/temporal/workflows'),
+            activities: {
+                processVideo,
+            },
+            maxConcurrentActivityTaskExecutions: 5,
+            maxConcurrentWorkflowTaskExecutions: 10,
+        });
+
+        console.log('✅ Processing worker created successfully');
+        console.log('📋 Task Queue: video-processing');
+        console.log('🔄 Max concurrent activities: 5');
+        console.log('🔄 Max concurrent workflows: 10');
+
+        // Setup enhanced graceful shutdown for multiple signals
+        const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
+        signals.forEach((signal) => {
+            process.on(signal, () => gracefulShutdown(worker, signal));
+        });
+
+        // Handle uncaught exceptions
+        process.on('uncaughtException', (error) => {
+            console.error('❌ Uncaught Exception in processing worker:', error);
+            process.exit(1);
+        });
+
+        process.on('unhandledRejection', (reason, promise) => {
+            console.error(
+                '❌ Unhandled Rejection in processing worker at:',
+                promise,
+                'reason:',
+                reason,
+            );
+            process.exit(1);
+        });
+
+        console.log('🏃 Processing worker is running. Press Ctrl+C to stop.');
+        await worker.run();
+    } catch (error) {
+        console.error('❌ Failed to start processing worker:', error);
+        process.exit(1);
+    }
+}
+
+startWorker().catch((err) => {
+    console.error('❌ Processing worker startup error:', err);
+    process.exit(1);
+});

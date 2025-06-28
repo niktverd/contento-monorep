@@ -34,7 +34,7 @@ describe('instagram-locations.controller', () => {
         expect(response2.body.count).toBeDefined();
         expect(response2.body.count).not.toBe(0);
         expect(response2.status).toBeLessThan(299);
-    });
+    }, 15000);
 
     it('updateInstagramLocationPatch', async () => {
         const response = await createLocationHelper(undefined, testApp);

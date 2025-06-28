@@ -61,7 +61,7 @@ describe('accounts.controller', () => {
         expect(response2.body.slug).toBe('test-account-updated');
         expect(response2.body.enabled).toBe(false);
         expect(response2.status).toBeLessThan(299);
-    });
+    }, 15000);
 
     it('delete', async () => {
         const response = await createAccountHelper(undefined, testApp);

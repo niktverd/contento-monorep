@@ -61,6 +61,7 @@ export enum FetchRoutes {
     getAllSources = '/ui/get-all-sources',
     getOneSource = '/ui/get-one-source',
     getSourcesStatisticsByDays = '/ui/get-sources-statistics-by-days',
+    updateOneSource = '/ui/update-source',
 
     getInsights = '/ui/get-insights',
     getMedia = '/ui/get-media',

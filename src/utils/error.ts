@@ -8,3 +8,12 @@ export class ThrownError extends Error {
         this.code = code || 500;
     }
 }
+
+export class NotRetryableError extends Error {
+    code: number;
+    constructor(message: string, code?: number) {
+        logError('NotRetryableError', message, code);
+        super(message);
+        this.code = code || 500;
+    }
+}

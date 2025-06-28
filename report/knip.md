@@ -1,6 +1,6 @@
 # Knip report
 
-## Unused files (9)
+## Unused files (12)
 
 * src/config/database.ts
 * src/db/scripts/migrateToPostgres.ts
@@ -8,46 +8,72 @@
 * src/sections/cloud-run/components/scenarios/CoverWithImage.ts
 * src/sections/cloud-run/components/scenarios/LognVideoWithShortInjections.ts
 * src/sections/cloud-run/components/scenarios/common.ts
+* src/temporal/activities/configs.ts
+* src/temporal/activities/instagram.activity.ts
+* src/temporal/worker.ts
 * src/tests/requests/imitateInstagramMessageWebhook.ts
 * src/utils/migrationHelper.ts
 * src/utils/scenarios.ts
 
-## Unused dependencies (4)
+## Unused dependencies (5)
 
 | Name                   | Location          | Severity |
 | :--------------------- | :---------------- | :------- |
-| typescript-json-schema | package.json:80:6 | error    |
-| cors                   | package.json:60:6 | error    |
-| uuid                   | package.json:81:6 | error    |
-| pg                     | package.json:76:6 | error    |
+| typescript-json-schema | package.json:96:6 | error    |
+| @temporalio/testing    | package.json:72:6 | error    |
+| cors                   | package.json:76:6 | error    |
+| uuid                   | package.json:97:6 | error    |
+| pg                     | package.json:92:6 | error    |
 
-## Unused devDependencies (2)
+## Unused devDependencies (3)
 
-| Name        | Location          | Severity |
-| :---------- | :---------------- | :------- |
-| @types/cors | package.json:86:6 | error    |
-| @types/uuid | package.json:95:6 | error    |
+| Name        | Location           | Severity |
+| :---------- | :----------------- | :------- |
+| @types/cors | package.json:102:6 | error    |
+| @types/uuid | package.json:111:6 | error    |
+| nanoid      | package.json:117:6 | error    |
 
-## Unlisted binaries (1)
+## Unlisted dependencies (1)
 
-| Name   | Location     | Severity |
-| :----- | :----------- | :------- |
-| podman | package.json | error    |
+| Name          | Location                        | Severity |
+| :------------ | :------------------------------ | :------- |
+| @jest/globals | src/temporal/__tests__/setup.ts | error    |
 
-## Unused exports (10)
+## Unlisted binaries (3)
 
-| Name            | Location                                                              | Severity |
-| :-------------- | :-------------------------------------------------------------------- | :------- |
-| getSvg          | src/sections/cloud-run/components/reels-creator/create-video.ts:22:17 | error    |
-| config          | src/sections/cloud-run/components/reels-creator/create-video.ts:41:14 | error    |
-| logStreamsInfo  | src/sections/cloud-run/components/video/ffprobe.helpers.ts:80:23      | error    |
-| preprocessVideo | src/sections/chore/components/preprocess-video.ts:55:14               | error    |
-| default         | src/types/models/InstagramMediaContainer.ts:49:8                      | error    |
-| default         | src/types/models/InstagramLocation.ts:24:8                            | error    |
-| fetchDelete     | src/utils/fetchHelpers.ts:81:14                                       | error    |
-| usaText         | src/config/places/usa.ts:55:14                                        | error    |
-| default         | src/types/models/User.ts:25:8                                         | error    |
-| default         | src/routes.ts:20:8                                                    | error    |
+| Name     | Location     | Severity |
+| :------- | :----------- | :------- |
+| temporal | package.json | error    |
+| podman   | package.json | error    |
+| open     | package.json | error    |
+
+## Unresolved imports (1)
+
+| Name                       | Location                                                   | Severity |
+| :------------------------- | :--------------------------------------------------------- | :------- |
+| #schemas/handlers/temporal | src/sections/temporal/components/workflow.component.ts:9:9 | error    |
+
+## Unused exports (17)
+
+| Name                                        | Location                                                              | Severity |
+| :------------------------------------------ | :-------------------------------------------------------------------- | :------- |
+| getSvg                                      | src/sections/cloud-run/components/reels-creator/create-video.ts:22:17 | error    |
+| config                                      | src/sections/cloud-run/components/reels-creator/create-video.ts:41:14 | error    |
+| logStreamsInfo                              | src/sections/cloud-run/components/video/ffprobe.helpers.ts:80:23      | error    |
+| preprocessVideo                             | src/sections/chore/components/preprocess-video.ts:55:14               | error    |
+| default                                     | src/types/models/InstagramMediaContainer.ts:49:8                      | error    |
+| GetWorkflowStatusResponseSchema             | src/types/schemas/handlers/temporal.ts:26:14                          | error    |
+| GetWorkflowResultResponseSchema             | src/types/schemas/handlers/temporal.ts:50:14                          | error    |
+| GetWorkflowResultParamsSchema               | src/types/schemas/handlers/temporal.ts:46:14                          | error    |
+| TemporalHealthResponseSchema                | src/types/schemas/handlers/temporal.ts:37:14                          | error    |
+| StartVideoDownloadingWorkflowResponseSchema | src/types/schemas/handlers/temporal.ts:8:14                           | error    |
+| default                                     | src/types/models/InstagramLocation.ts:24:8                            | error    |
+| closeTemporalClient                         | src/sections/temporal/client.ts:130:23                                | error    |
+| cancelWorkflow                              | src/sections/temporal/client.ts:119:23                                | error    |
+| fetchDelete                                 | src/utils/fetchHelpers.ts:82:14                                       | error    |
+| usaText                                     | src/config/places/usa.ts:55:14                                        | error    |
+| default                                     | src/types/models/User.ts:25:8                                         | error    |
+| default                                     | src/routes.ts:22:8                                                    | error    |
 
 ## Unused exported types (3)
 
@@ -70,13 +96,14 @@
 | Min2                         | src/constants.ts:23:5       | error    |
 | Min1                         | src/constants.ts:24:5       | error    |
 
-## Duplicate exports (5)
+## Duplicate exports (6)
 
-| Name                      | Location                              | Severity |
-| :------------------------ | :------------------------------------ | :------- |
-| InstagramLocation|default | src/types/models/InstagramLocation.ts | error    |
-| PreparedVideo|default     | src/types/models/PreparedVideo.ts     | error    |
-| Scenario|default          | src/types/models/Scenario.ts          | error    |
-| Source|default            | src/types/models/Source.ts            | error    |
-| User|default              | src/types/models/User.ts              | error    |
+| Name                                                           | Location                              | Severity |
+| :------------------------------------------------------------- | :------------------------------------ | :------- |
+| InstagramLocation|default                                      | src/types/models/InstagramLocation.ts | error    |
+| PreparedVideo|default                                          | src/types/models/PreparedVideo.ts     | error    |
+| Scenario|default                                               | src/types/models/Scenario.ts          | error    |
+| Source|default                                                 | src/types/models/Source.ts            | error    |
+| User|default                                                   | src/types/models/User.ts              | error    |
+| RunProcessingActivityArgsSchema|ProcessVideoActivityArgsSchema | src/types/temporal.ts                 | error    |
 

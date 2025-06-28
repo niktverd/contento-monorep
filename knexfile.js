@@ -11,6 +11,7 @@ const {
     password = 'postgres',
     database = 'postgres',
 } = JSON.parse(process.env.POSTGRES_CONFIG || '{}');
+
 module.exports = {
     development: {
         client: 'pg',
@@ -20,7 +21,7 @@ module.exports = {
             user,
             password,
             database,
-            ssl: {rejectUnauthorized: false}, // Add this line
+            ssl: false,
         },
         migrations: {
             directory: './migrations',
@@ -42,7 +43,7 @@ module.exports = {
             user,
             password,
             database,
-            ssl: {rejectUnauthorized: false}, // Add this line
+            ssl: {rejectUnauthorized: false},
         },
         migrations: {
             directory: './migrations',
@@ -63,7 +64,7 @@ module.exports = {
             user,
             password,
             database,
-            ssl: {rejectUnauthorized: false}, // Add this line
+            ssl: {rejectUnauthorized: false},
         },
         migrations: {
             directory: './migrations',
