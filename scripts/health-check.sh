@@ -231,14 +231,18 @@ main() {
     
     # 1. Check container status
     log_info "📋 Step 1: Checking container status..."
-    local containers=("postgres-prod" "temporal-prod" "temporal-ui-prod" "instagram-app-prod" "downloading-worker-prod" "processing-worker-prod")
+    local containers=("postgresql" "temporal" "temporal-ui" "app" "downloading-worker" "processing-worker")
+    local container_names=("postgres-prod" "temporal-prod" "temporal-ui-prod" "instagram-app-prod" "downloading-worker-prod" "processing-worker-prod")
     
-    for container in "${containers[@]}"; do
-        if ! check_container_running "$container"; then
+    for i in "${!containers[@]}"; do
+        local service="${containers[$i]}"
+        local container_name="${container_names[$i]}"
+        
+        if ! check_container_running "$service"; then
             ((failed_checks++))
         fi
         
-        if ! check_container_health "$container"; then
+        if ! check_container_health "$container_name"; then
             ((failed_checks++))
         fi
     done
