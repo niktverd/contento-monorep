@@ -41,15 +41,12 @@ RUN npm prune --production && npm cache clean --force
 # ================================
 # Runtime Stage - Ultra-slim
 # ================================
-FROM node:18-alpine AS production
+FROM node:18-bullseye-slim AS production
 
 # Install only essential runtime dependencies
-RUN apk add --no-cache \
-    ffmpeg \
-    tini \
-    wget \
-    procps \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends ffmpeg tini wget procps ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -90,7 +87,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --quiet --tries=1 --spider --timeout=5 http://localhost:8080/health || exit 1
 
 # Use tini for proper signal handling and process management
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Default command (matches npm start script)
 CMD ["node", "dist/server/index.js"] 
