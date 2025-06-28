@@ -441,20 +441,20 @@ main() {
     
     # Execute initialization steps
     log_info ""
-    log_info "Step 1: Creating dummy certificates..."
+    log_info "Step 1: Updating NGINX configuration..."
+    update_nginx_config "$domain"
+
+    log_info ""
+    log_info "Step 2: Creating dummy certificates..."
     create_dummy_certificates "$domain"
     
     log_info ""
-    log_info "Step 2: Starting NGINX for ACME challenge..."
+    log_info "Step 3: Starting NGINX for ACME challenge..."
     start_nginx_for_acme
     
     log_info ""
-    log_info "Step 3: Obtaining real SSL certificates..."
+    log_info "Step 4: Obtaining real SSL certificates..."
     if obtain_ssl_certificates "$domain" "$email"; then
-        log_info ""
-        log_info "Step 4: Updating NGINX configuration..."
-        update_nginx_config "$domain"
-        
         log_info ""
         log_info "Step 5: Reloading NGINX..."
         reload_nginx
