@@ -228,7 +228,7 @@ jobs:
             
             # Wait for services to be fully ready
             echo "⏳ Waiting for services to be ready..."
-            sleep 60
+            sleep 120
             
             # Run health check script
             if [ -f scripts/health-check.sh ]; then

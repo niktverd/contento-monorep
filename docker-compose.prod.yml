@@ -155,11 +155,11 @@ services:
           cpus: '1'
           memory: 4G
     healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/api/ping']
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 120s
     restart: unless-stopped
     networks:
       temporal-prod-network:
@@ -219,7 +219,7 @@ services:
           'CMD',
           'node',
           '-e',
-          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/api/ping", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
         ]
       interval: 30s
       timeout: 10s
@@ -284,7 +284,7 @@ services:
           'CMD',
           'node',
           '-e',
-          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/api/ping", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
         ]
       interval: 30s
       timeout: 10s
