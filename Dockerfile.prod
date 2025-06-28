@@ -25,7 +25,6 @@ COPY src/ ./src/
 COPY index.ts ./
 COPY app.ts ./
 COPY generate-types.ts ./
-COPY sharedTypes/ ./sharedTypes/
 
 # Build TypeScript application
 RUN npm run build

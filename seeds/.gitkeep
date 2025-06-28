@@ -1,0 +1,3 @@
+# This file ensures that git tracks the seeds/ directory
+# even when it's empty. The seeds/ directory is used by Knex.js
+# for database seed files. 
