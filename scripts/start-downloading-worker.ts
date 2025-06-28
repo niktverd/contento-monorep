@@ -13,8 +13,15 @@ dotenv.config();
 
 // Production configuration
 const SHUTDOWN_TIMEOUT = parseInt(process.env.WORKER_SHUTDOWN_TIMEOUT || '30000', 10);
+const MAX_RETRIES = parseInt(process.env.WORKER_MAX_RETRIES || '10', 10);
+const INITIAL_RETRY_DELAY = parseInt(process.env.WORKER_INITIAL_RETRY_DELAY || '2000', 10);
 
 let isShuttingDown = false;
+
+// Sleep utility
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Enhanced graceful shutdown handler
 async function gracefulShutdown(worker: Worker, signal: string) {
@@ -43,23 +50,52 @@ async function gracefulShutdown(worker: Worker, signal: string) {
     }
 }
 
+async function createWorkerWithRetry(): Promise<Worker> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            console.log(
+                `🔄 Attempt ${attempt}/${MAX_RETRIES}: Creating Temporal downloading worker...`,
+            );
+
+            const worker = await Worker.create({
+                taskQueue: 'video-downloading',
+                workflowsPath: require.resolve('../src/temporal/workflows'),
+                activities: {
+                    downloadVideo,
+                    getAccountsActivity,
+                    runProcessingActivity,
+                },
+                maxConcurrentActivityTaskExecutions: 15,
+                maxConcurrentWorkflowTaskExecutions: 25,
+            });
+
+            console.log('✅ Downloading worker created successfully');
+            return worker;
+        } catch (error) {
+            lastError = error as Error;
+            console.error(`❌ Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+
+            if (attempt < MAX_RETRIES) {
+                const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+                console.log(`⏳ Waiting ${delay}ms before retry...`);
+                await sleep(delay);
+            }
+        }
+    }
+
+    throw new Error(
+        `Failed to create worker after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`,
+    );
+}
+
 async function startWorker() {
     console.log('🚀 Starting Temporal downloading worker...');
 
     try {
-        const worker = await Worker.create({
-            taskQueue: 'video-downloading',
-            workflowsPath: require.resolve('../src/temporal/workflows'),
-            activities: {
-                downloadVideo,
-                getAccountsActivity,
-                runProcessingActivity,
-            },
-            maxConcurrentActivityTaskExecutions: 15,
-            maxConcurrentWorkflowTaskExecutions: 25,
-        });
+        const worker = await createWorkerWithRetry();
 
-        console.log('✅ Downloading worker created successfully');
         console.log('📋 Task Queue: video-downloading');
         console.log('🔄 Max concurrent activities: 15');
         console.log('🔄 Max concurrent workflows: 25');

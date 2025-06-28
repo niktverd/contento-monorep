@@ -4,14 +4,25 @@ import 'module-alias/register';
 import {Worker} from '@temporalio/worker';
 import dotenv from 'dotenv';
 
-import {processVideo} from '../src/temporal/activities';
+import {
+    downloadVideo,
+    getAccountsActivity,
+    runProcessingActivity,
+} from '../src/temporal/activities';
 
 dotenv.config();
 
 // Production configuration
 const SHUTDOWN_TIMEOUT = parseInt(process.env.WORKER_SHUTDOWN_TIMEOUT || '30000', 10);
+const MAX_RETRIES = parseInt(process.env.WORKER_MAX_RETRIES || '10', 10);
+const INITIAL_RETRY_DELAY = parseInt(process.env.WORKER_INITIAL_RETRY_DELAY || '2000', 10);
 
 let isShuttingDown = false;
+
+// Sleep utility
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Enhanced graceful shutdown handler
 async function gracefulShutdown(worker: Worker, signal: string) {
@@ -40,24 +51,55 @@ async function gracefulShutdown(worker: Worker, signal: string) {
     }
 }
 
+async function createWorkerWithRetry(): Promise<Worker> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            console.log(
+                `🔄 Attempt ${attempt}/${MAX_RETRIES}: Creating Temporal processing worker...`,
+            );
+
+            const worker = await Worker.create({
+                taskQueue: 'video-processing',
+                workflowsPath: require.resolve('../src/temporal/workflows'),
+                activities: {
+                    downloadVideo,
+                    getAccountsActivity,
+                    runProcessingActivity,
+                },
+                maxConcurrentActivityTaskExecutions: 10,
+                maxConcurrentWorkflowTaskExecutions: 15,
+            });
+
+            console.log('✅ Processing worker created successfully');
+            return worker;
+        } catch (error) {
+            lastError = error as Error;
+            console.error(`❌ Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+
+            if (attempt < MAX_RETRIES) {
+                const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt - 1);
+                console.log(`⏳ Waiting ${delay}ms before retry...`);
+                await sleep(delay);
+            }
+        }
+    }
+
+    throw new Error(
+        `Failed to create worker after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`,
+    );
+}
+
 async function startWorker() {
     console.log('🚀 Starting Temporal processing worker...');
 
     try {
-        const worker = await Worker.create({
-            taskQueue: 'video-processing',
-            workflowsPath: require.resolve('../src/temporal/workflows'),
-            activities: {
-                processVideo,
-            },
-            maxConcurrentActivityTaskExecutions: 5,
-            maxConcurrentWorkflowTaskExecutions: 10,
-        });
+        const worker = await createWorkerWithRetry();
 
-        console.log('✅ Processing worker created successfully');
         console.log('📋 Task Queue: video-processing');
-        console.log('🔄 Max concurrent activities: 5');
-        console.log('🔄 Max concurrent workflows: 10');
+        console.log('🔄 Max concurrent activities: 10');
+        console.log('🔄 Max concurrent workflows: 15');
 
         // Setup enhanced graceful shutdown for multiple signals
         const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];

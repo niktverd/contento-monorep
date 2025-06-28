@@ -25,13 +25,14 @@
 | uuid                   | package.json:97:6 | error    |
 | pg                     | package.json:92:6 | error    |
 
-## Unused devDependencies (3)
+## Unused devDependencies (4)
 
 | Name        | Location           | Severity |
 | :---------- | :----------------- | :------- |
 | @types/cors | package.json:102:6 | error    |
-| @types/uuid | package.json:111:6 | error    |
-| nanoid      | package.json:117:6 | error    |
+| @types/uuid | package.json:112:6 | error    |
+| @types/pg   | package.json:110:6 | error    |
+| nanoid      | package.json:118:6 | error    |
 
 ## Unlisted dependencies (1)
 
