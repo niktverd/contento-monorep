@@ -1,26 +1,23 @@
 import {
     getWorkflowResult,
     getWorkflowStatus,
-    startVideoWorkflow,
+    startVideoDownloadingWorkflow,
 } from '../src/sections/temporal/client';
-import {VideoWorkflowInput} from '../src/types/temporal';
+import {VideoDownloadingWorkflowArgs} from '../src/types/temporal';
 
 async function testWorkflow() {
     console.log('🧪 Testing Temporal Video Processing Workflow...');
 
     try {
         // Test workflow input
-        const input: VideoWorkflowInput = {
+        const input: VideoDownloadingWorkflowArgs = {
             sourceId: 12345,
-            accountId: 1,
-            scenarioId: 1,
-            firebaseUrl: 'https://example.com/test-video.mp4', // This is a test URL
         };
 
         console.log('📋 Starting workflow with input:', input);
 
         // Start workflow
-        const {workflowId, runId} = await startVideoWorkflow(input);
+        const {workflowId, runId} = await startVideoDownloadingWorkflow(input);
         console.log(`🚀 Workflow started: ${workflowId} (run: ${runId})`);
 
         // Check status

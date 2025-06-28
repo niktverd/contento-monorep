@@ -37,8 +37,8 @@ interface LoadTestResults {
 }
 
 class TemporalLoadTester {
-    private client: Client;
-    private connection: Connection;
+    private client!: Client;
+    private connection!: Connection;
     private config: LoadTestConfig;
     private metrics: WorkflowMetrics[] = [];
 

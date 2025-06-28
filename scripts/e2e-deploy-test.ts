@@ -221,7 +221,7 @@ async function testContainerHealth(): Promise<void> {
             }
             console.log(`    ✅ ${endpoint.name} is healthy`);
         } catch (error) {
-            throw new Error(`${endpoint.name} failed: ${error.message}`);
+            throw new Error(`${endpoint.name} failed: ${(error as Error).message}`);
         }
     }
 }

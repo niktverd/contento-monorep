@@ -47,3 +47,41 @@ export const ProcessVideoActivityResponseSchema = z.object({
 });
 export type ProcessVideoActivityArgs = z.infer<typeof ProcessVideoActivityArgsSchema>;
 export type ProcessVideoActivityResponse = z.infer<typeof ProcessVideoActivityResponseSchema>;
+
+export const VideoWorkflowInputSchema = DownloadVideoActivityArgsSchema.extend({
+    accountId: z.number(),
+    scenarioId: z.number(),
+    firebaseUrl: z.string().url(),
+});
+export type VideoWorkflowInput = z.infer<typeof VideoWorkflowInputSchema>;
+
+export const CreateInstagramContainerInputSchema = z.object({
+    processedVideoUrl: z.string(),
+    accountId: z.number(),
+    scenarioId: z.number(),
+    sourceId: z.number(),
+});
+
+export const CreateInstagramContainerResultSchema = z.object({
+    success: z.boolean(),
+    mediaContainerId: z.string().optional(),
+    creationId: z.string().optional(),
+    error: z.string().optional(),
+});
+
+export const PublishInstagramPostInputSchema = z.object({
+    mediaContainerId: z.string(),
+    accountId: z.number(),
+    creationId: z.string(),
+});
+
+export const PublishInstagramPostResultSchema = z.object({
+    success: z.boolean(),
+    postId: z.string().optional(),
+    error: z.string().optional(),
+});
+
+export type CreateInstagramContainerInput = z.infer<typeof CreateInstagramContainerInputSchema>;
+export type CreateInstagramContainerResult = z.infer<typeof CreateInstagramContainerResultSchema>;
+export type PublishInstagramPostInput = z.infer<typeof PublishInstagramPostInputSchema>;
+export type PublishInstagramPostResult = z.infer<typeof PublishInstagramPostResultSchema>;

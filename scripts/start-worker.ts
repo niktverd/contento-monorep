@@ -6,7 +6,8 @@ import {readFileSync} from 'fs';
 import http from 'http';
 import {join} from 'path';
 
-import {DefaultLogger, LogLevel, NativeConnection, Runtime, Worker} from '@temporalio/worker';
+import {DefaultLogger, NativeConnection, Runtime, Worker} from '@temporalio/worker';
+import type {LogLevel} from '@temporalio/worker';
 
 import {downloadVideo} from '../src/temporal/activities/download.activity';
 import {
@@ -43,6 +44,13 @@ interface WorkerConfig {
     logLevel: LogLevel;
 }
 
+const LogLevelMap: Record<string, LogLevel> = {
+    DEBUG: 'DEBUG',
+    INFO: 'INFO',
+    WARN: 'WARN',
+    ERROR: 'ERROR',
+};
+
 // Load configuration from environment variables
 function loadConfig(): WorkerConfig {
     const config: WorkerConfig = {
@@ -78,16 +86,7 @@ function loadConfig(): WorkerConfig {
         metricsEnabled: process.env.TEMPORAL_METRICS_ENABLED === 'true',
         metricsPort: parseInt(process.env.TEMPORAL_METRICS_PORT || '9090', 10),
         healthCheckPort: parseInt(process.env.TEMPORAL_HEALTH_CHECK_PORT || '8080', 10),
-        logLevel:
-            process.env.TEMPORAL_LOG_LEVEL === 'DEBUG'
-                ? LogLevel.DEBUG
-                : process.env.TEMPORAL_LOG_LEVEL === 'INFO'
-                ? LogLevel.INFO
-                : process.env.TEMPORAL_LOG_LEVEL === 'WARN'
-                ? LogLevel.WARN
-                : process.env.TEMPORAL_LOG_LEVEL === 'ERROR'
-                ? LogLevel.ERROR
-                : LogLevel.INFO,
+        logLevel: LogLevelMap[process.env.TEMPORAL_LOG_LEVEL || 'INFO'] || 'INFO',
     };
 
     return config;
@@ -148,9 +147,8 @@ function setupMonitoring(config: WorkerConfig) {
 }
 
 // Graceful shutdown handling
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function setupGracefulShutdown(worker: Worker, config: WorkerConfig, healthServer?: any) {
-    const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
+function setupGracefulShutdown(worker: Worker, config: WorkerConfig, healthServer?: http.Server) {
+    const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
 
     signals.forEach((signal) => {
         process.on(signal, async () => {
@@ -176,7 +174,7 @@ function setupGracefulShutdown(worker: Worker, config: WorkerConfig, healthServe
                 console.log('Worker shutdown completed successfully');
                 process.exit(0);
             } catch (error) {
-                console.error('Error during worker shutdown:', error);
+                console.error('Error during worker shutdown:', error as Error);
                 process.exit(1);
             }
         });
@@ -224,15 +222,15 @@ async function startWorker() {
                 console.log(JSON.stringify(logEntry));
             }),
             // Configure telemetry in production
-            telemetryOptions: {
-                metrics: {
-                    prometheus: {
-                        bindAddress: config.metricsEnabled
-                            ? `0.0.0.0:${config.metricsPort}`
-                            : undefined,
-                    },
-                },
-            },
+            telemetryOptions: config.metricsEnabled
+                ? {
+                      metrics: {
+                          prometheus: {
+                              bindAddress: `0.0.0.0:${config.metricsPort}`,
+                          },
+                      },
+                  }
+                : undefined,
         });
 
         // Setup TLS if enabled

@@ -81,7 +81,7 @@ async function testDatabaseConnection(): Promise<boolean> {
 
         return true;
     } catch (error) {
-        console.error('   ❌ Database connection failed:', error.message);
+        console.error('   ❌ Database connection failed:', (error as Error).message);
         await pool.end();
         return false;
     }
@@ -107,7 +107,7 @@ async function testTemporalConnection(): Promise<boolean> {
             await client.workflow.list();
             console.log(`   ✅ Temporal namespace '${config.temporal.namespace}' accessible`);
         } catch (error) {
-            console.warn(`   ⚠️  Namespace access warning: ${error.message}`);
+            console.warn(`   ⚠️  Namespace access warning: ${(error as Error).message}`);
         }
 
         // Test task queue polling (simplified)
@@ -116,7 +116,7 @@ async function testTemporalConnection(): Promise<boolean> {
         await connection.close();
         return true;
     } catch (error) {
-        console.error('   ❌ Temporal connection failed:', error.message);
+        console.error('   ❌ Temporal connection failed:', (error as Error).message);
         return false;
     }
 }
@@ -141,7 +141,7 @@ async function testAppHealthEndpoint(): Promise<boolean> {
             return false;
         }
     } catch (error) {
-        console.error('   ❌ App health endpoint failed:', error.message);
+        console.error('   ❌ App health endpoint failed:', (error as Error).message);
         return false;
     }
 }
@@ -162,14 +162,16 @@ async function testWorkersConnectivity(): Promise<boolean> {
                 // This is a simplified test - in practice workers register with task queues
                 console.log(`   ✅ Task queue '${taskQueue}' configured`);
             } catch (error) {
-                console.warn(`   ⚠️  Task queue '${taskQueue}' warning: ${error.message}`);
+                console.warn(
+                    `   ⚠️  Task queue '${taskQueue}' warning: ${(error as Error).message}`,
+                );
             }
         }
 
         await connection.close();
         return true;
     } catch (error) {
-        console.error('   ❌ Worker connectivity test failed:', error.message);
+        console.error('   ❌ Worker connectivity test failed:', (error as Error).message);
         return false;
     }
 }
@@ -202,13 +204,13 @@ async function testEndToEndWorkflow(): Promise<boolean> {
                 } workflows found)`,
             );
         } catch (error) {
-            console.warn(`   ⚠️  Workflow query warning: ${error.message}`);
+            console.warn(`   ⚠️  Workflow query warning: ${(error as Error).message}`);
         }
 
         await connection.close();
         return true;
     } catch (error) {
-        console.error('   ❌ End-to-end workflow test failed:', error.message);
+        console.error('   ❌ End-to-end workflow test failed:', (error as Error).message);
         return false;
     }
 }
@@ -242,7 +244,7 @@ async function testNetworkLatency(): Promise<boolean> {
 
         return true;
     } catch (error) {
-        console.error('   ❌ Network latency test failed:', error.message);
+        console.error('   ❌ Network latency test failed:', (error as Error).message);
         return false;
     }
 }
@@ -273,7 +275,7 @@ async function verifyAllCommunication(): Promise<void> {
                 console.log(`❌ ${test.name}: FAILED\n`);
             }
         } catch (error) {
-            console.error(`❌ ${test.name}: ERROR - ${error.message}\n`);
+            console.error(`❌ ${test.name}: ERROR - ${(error as Error).message}\n`);
             results.push({name: test.name, success: false});
         }
 
