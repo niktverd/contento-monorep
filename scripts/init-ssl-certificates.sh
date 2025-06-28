@@ -74,7 +74,7 @@ check_docker_compose() {
         exit 1
     fi
     
-    if ! docker compose version >/dev/null 2>&1; then
+    if ! command -v docker-compose >/dev/null 2>&1; then
         log_error "Docker Compose is not available"
         exit 1
     fi
@@ -191,14 +191,14 @@ start_nginx_for_acme() {
     log_info "Starting NGINX for ACME challenge..."
     
     # Start only NGINX (no SSL yet)
-    docker compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
     
     # Wait for NGINX to be ready
     log_info "Waiting for NGINX to start..."
     sleep 10
     
     # Test if NGINX is responding
-    if ! docker compose -f "$DOCKER_COMPOSE_FILE" exec nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; then
+    if ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; then
         log_warning "NGINX health check failed, but continuing..."
     fi
     
@@ -247,7 +247,7 @@ update_nginx_config() {
         log_warning "NGINX configuration still contains placeholder domain"
         log_info "Please update docker/nginx/nginx.conf:"
         log_info "  Replace 'your-domain.com' with '$domain'"
-        log_info "  Then run: docker compose -f $DOCKER_COMPOSE_FILE restart nginx"
+        log_info "  Then run: docker-compose -f $DOCKER_COMPOSE_FILE restart nginx"
     else
         log_info "NGINX configuration appears to be updated"
     fi
@@ -258,7 +258,7 @@ reload_nginx() {
     log_info "Reloading NGINX with new SSL certificates..."
     
     # Restart NGINX to pick up new certificates
-    docker compose -f "$DOCKER_COMPOSE_FILE" restart nginx
+    docker-compose -f "$DOCKER_COMPOSE_FILE" restart nginx
     
     # Wait for restart
     sleep 5
@@ -271,7 +271,7 @@ start_certificate_renewal() {
     log_info "Starting certificate renewal service..."
     
     # Start certbot service for automatic renewal
-    docker compose -f "$DOCKER_COMPOSE_FILE" up -d certbot
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d certbot
     
     log_success "Certificate renewal service started"
     log_info "Certificates will be checked for renewal every 12 hours"
@@ -386,7 +386,7 @@ main() {
         log_info "Next steps:"
         log_info "  1. Update your DNS to point $domain to this server"
         log_info "  2. Test HTTPS access: https://$domain"
-        log_info "  3. Monitor certificate renewal logs: docker compose logs certbot"
+        log_info "  3. Monitor certificate renewal logs: docker-compose logs certbot"
         log_info ""
         log_info "Certificate files location:"
         log_info "  - Certificate: /etc/letsencrypt/live/$domain/fullchain.pem"
