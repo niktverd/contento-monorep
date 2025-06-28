@@ -25,6 +25,7 @@ COPY src/ ./src/
 COPY index.ts ./
 COPY app.ts ./
 COPY generate-types.ts ./
+COPY knexfile.js ./
 
 # Build TypeScript application
 RUN npm run build
