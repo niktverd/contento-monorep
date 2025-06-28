@@ -120,7 +120,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKER_IMAGE: ${{ needs.build-and-push.outputs.image-tag }}
+          DOCKER_IMAGE: ${{ format('{0}:main', env.REGISTRY, env.IMAGE_NAME) }}
           DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
         run: |
           # Create secure deployment script with environment variables
