@@ -159,7 +159,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
+      start_period: 60s
     restart: unless-stopped
     networks:
       temporal-prod-network:
@@ -214,13 +214,7 @@ services:
           cpus: '2'
           memory: 16G
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/api/ping", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
-        ]
+      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-downloading-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -279,13 +273,7 @@ services:
           cpus: '2'
           memory: 16G
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/api/ping", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
-        ]
+      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-processing-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3
