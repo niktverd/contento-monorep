@@ -33,7 +33,8 @@ RUN npm run build
 
 # Copy compiled worker scripts to expected path for runtime compatibility
 RUN mkdir -p dist/scripts \
-    && cp -r dist/server/scripts/* dist/scripts/
+    && cp -r dist/server/scripts/* dist/scripts/ \
+    && cp -r dist/server/src dist/src
 
 # Prune to production dependencies only
 RUN npm prune --production && npm cache clean --force
