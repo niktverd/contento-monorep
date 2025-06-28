@@ -203,12 +203,12 @@ jobs:
               echo "⚠️ Health check script not found, performing basic checks..."
               
               # Basic container status check
-              docker-compose -f docker-compose.prod.yml --env-file .env.production ps
+              docker-compose --file docker-compose.prod.yml --env-file .env.production ps
               
               # Check if all containers are healthy
-              if docker-compose -f docker-compose.prod.yml --env-file .env.production ps | grep -q "unhealthy\|Exit"; then
+              if docker-compose --file docker-compose.prod.yml --env-file .env.production ps | grep -q "unhealthy\|Exit"; then
                 echo "❌ Some containers are not healthy"
-                docker-compose -f docker-compose.prod.yml --env-file .env.production logs --tail=50
+                docker-compose --file docker-compose.prod.yml --env-file .env.production logs --tail=50
                 exit 1
               else
                 echo "✅ All containers appear to be healthy"

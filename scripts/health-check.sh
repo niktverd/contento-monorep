@@ -44,7 +44,7 @@ log_error() {
 # Health check functions
 check_container_running() {
     local container_name=$1
-    if docker compose -f "$DOCKER_COMPOSE_FILE" ps "$container_name" | grep -q "Up"; then
+    if docker-compose --file "$DOCKER_COMPOSE_FILE" ps "$container_name" | grep -q "Up"; then
         log_success "Container $container_name is running"
         return 0
     else
