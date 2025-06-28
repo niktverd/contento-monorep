@@ -31,6 +31,10 @@ COPY knexfile.js ./
 # Build TypeScript application
 RUN npm run build
 
+# Copy compiled worker scripts to expected path for runtime compatibility
+RUN mkdir -p dist/scripts \
+    && cp -r dist/server/scripts/* dist/scripts/
+
 # Prune to production dependencies only
 RUN npm prune --production && npm cache clean --force
 
