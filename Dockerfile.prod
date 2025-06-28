@@ -49,8 +49,8 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S appuser -u 1001 -G nodejs
+RUN groupadd -r nodejs --gid 1001 && \
+    useradd -r -g nodejs --uid 1001 appuser
 
 WORKDIR /app
 
