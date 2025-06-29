@@ -196,6 +196,14 @@ create_dummy_certificates() {
 
             echo 'Dummy certificates created for $domain'
         "
+    # Explicitly set ownership to NGINX user (UID 101, GID 101)
+    docker run --rm \
+        -v letsencrypt-certs:/etc/letsencrypt \
+        alpine:latest \
+        sh -c "chown -R 101:101 /etc/letsencrypt/live/$domain /etc/letsencrypt/archive/$domain"
+
+    log_success "Dummy SSL certificates created"
+}
     
     log_success "Dummy SSL certificates created"
 }
