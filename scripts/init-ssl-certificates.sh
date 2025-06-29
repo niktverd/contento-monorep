@@ -204,9 +204,6 @@ create_dummy_certificates() {
 
     log_success "Dummy SSL certificates created"
 }
-    
-    log_success "Dummy SSL certificates created"
-}
 
 # Start NGINX to handle ACME challenge
 start_nginx_for_acme() {
