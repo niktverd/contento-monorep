@@ -173,13 +173,7 @@ create_dummy_certificates() {
     log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
     
     # Create certificate directory structure
-    docker run --rm \
-        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
-        alpine:latest \
-        sh -c "
-            mkdir -p /etc/letsencrypt/live/$domain
-            mkdir -p /etc/letsencrypt/archive/$domain
-        "
+    docker run --rm -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" alpine:latest sh -c "mkdir -p /etc/letsencrypt/live/$domain && mkdir -p /etc/letsencrypt/archive/$domain"
     
     # Create webroot directory for ACME challenge
     docker run --rm \
@@ -254,19 +248,28 @@ obtain_ssl_certificates() {
     log_info "Email: $email"
     log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
     
+    # --- NEW: wipe dummy certs so certbot starts clean ---
+    docker run --rm \
+            -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+            alpine:latest \
+            sh -c "rm -rf /etc/letsencrypt/live/$domain \
+                           /etc/letsencrypt/archive/$domain \
+                           /etc/letsencrypt/renewal/$domain.conf || true"
+    # -----------------------------------------------------
+
     # Run certbot to obtain certificates
     docker run --rm \
-        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
-        -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
-        certbot/certbot \
-        certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        --email "$email" \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive \
-        --domains "$domain"
+            -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+            -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
+            certbot/certbot \
+            certonly \
+            --webroot \
+            --webroot-path=/var/www/certbot \
+            --email "$email" \
+            --agree-tos \
+            --no-eff-email \
+            --non-interactive \
+            --domains "$domain"
     
     if [[ $? -eq 0 ]]; then
         log_success "SSL certificates obtained successfully!"
