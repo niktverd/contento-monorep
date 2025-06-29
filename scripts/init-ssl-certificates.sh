@@ -164,13 +164,7 @@ create_dummy_certificates() {
     
     log_info "Creating dummy SSL certificates for initial setup..."
     
-    docker run --rm \
-        -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt \
-        alpine:latest \
-        sh -c "
-            mkdir -p /etc/letsencrypt/live/$domain
-            mkdir -p /etc/letsencrypt/archive/$domain
-        "
+    docker run --rm         -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt         alpine:latest         sh -c "mkdir -p /etc/letsencrypt/live/$domain && mkdir -p /etc/letsencrypt/archive/$domain"
     
     docker run --rm \
         -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt \
