@@ -196,20 +196,27 @@ create_dummy_certificates() {
 # Start NGINX to handle ACME challenge
 start_nginx_for_acme() {
     log_info "Starting NGINX for ACME challenge..."
-    
+
     # Start only NGINX (no SSL yet)
     docker-compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
-    
-    # Wait for NGINX to be ready
-    log_info "Waiting for NGINX to start..."
-    sleep 10
-    
-    # Test if NGINX is responding
-    if ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; then
-        log_warning "NGINX health check failed, but continuing..."
-    fi
-    
-    log_success "NGINX started successfully"
+
+    log_info "Waiting for NGINX to be ready for ACME challenge..."
+    local NGINX_WAIT_TIMEOUT=60 # seconds
+    local NGINX_WAIT_INTERVAL=5 # seconds
+    local elapsed_time=0
+
+    while ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; do
+        if [[ $elapsed_time -ge $NGINX_WAIT_TIMEOUT ]]; then
+            log_error "NGINX did not become ready within ${NGINX_WAIT_TIMEOUT} seconds."
+            log_error "Check NGINX logs for details: docker-compose logs nginx"
+            exit 1
+        fi
+        log_info "NGINX not yet ready, waiting... (${elapsed_time}/${NGINX_WAIT_TIMEOUT}s)"
+        sleep "$NGINX_WAIT_INTERVAL"
+        elapsed_time=$((elapsed_time + NGINX_WAIT_INTERVAL))
+    done
+
+    log_success "NGINX is ready for ACME challenge."
 }
 
 # Obtain real SSL certificates from Let's Encrypt

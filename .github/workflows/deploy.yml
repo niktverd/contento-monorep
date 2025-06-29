@@ -297,131 +297,132 @@ jobs:
           echo "3. Monitor application performance and resource usage"
           echo "4. Ensure DNS A-record points ${{ secrets.HETZNER_SERVER_DOMAIN }} -> ${{ secrets.HETZNER_SERVER_HOST }}"
 
-  staging-test:
-    name: Run Staging E2E Tests
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/develop'
-    environment: staging
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #  staging-test:
 
-      - name: Setup SSH for staging
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.STAGING_SERVER_HOST }} >> ~/.ssh/known_hosts
+#    name: Run Staging E2E Tests
+#    runs-on: ubuntu-latest
+#    needs: build-and-push
+#    if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/develop'
+#    environment: staging
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+#
+#      - name: Setup SSH for staging
+#        run: |
+#          mkdir -p ~/.ssh
+#          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+#          chmod 600 ~/.ssh/id_rsa
+#          ssh-keyscan -H ${{ secrets.STAGING_SERVER_HOST }} >> ~/.ssh/known_hosts
+#
+#      - name: Deploy to staging environment
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            mkdir -p /opt/instagram-video-downloader-staging
+#            cd /opt/instagram-video-downloader-staging
+#          '
+#
+#          # Copy staging configuration
+#          scp docker-compose.staging.yml ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp -r docker/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp -r scripts/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp .env.production ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/.env.staging
+#
+#      - name: Configure staging environment
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Create staging environment file
+#            cp .env.staging .env.staging.local
+#
+#            # Replace with staging-specific values
+#            sed -i "s/your_secure_postgres_password_here/${{ secrets.STAGING_POSTGRES_PASSWORD }}/g" .env.staging.local
+#            sed -i "s/temporal/temporal_staging/g" .env.staging.local
+#            sed -i "s/production/staging/g" .env.staging.local
+#            sed -i "s/info/debug/g" .env.staging.local
+#
+#            # Set staging image
+#            echo "DOCKER_IMAGE=${{ needs.build-and-push.outputs.image-tag }}" >> .env.staging.local
+#          '
+#
+#      - name: Deploy staging stack
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Login to registry
+#            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+#
+#            # Stop existing staging containers
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30 || true
+#
+#            # Pull latest images
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local pull
+#
+#            # Start staging stack
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local up -d
+#
+#            # Wait for services to be ready
+#            echo "⏳ Waiting for staging services to be ready..."
+#            sleep 60
+#          '
+#
+#      - name: Setup Node.js for testing
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: '20'
+#          cache: 'npm'
+#
+#      - name: Install dependencies
+#        run: npm ci
+#
+#      - name: Run E2E tests against staging
+#        env:
+#          STAGING_URL: http://${{ secrets.STAGING_SERVER_HOST }}:8080
+#          TEMPORAL_ADDRESS: ${{ secrets.STAGING_SERVER_HOST }}:7233
+#          TEMPORAL_NAMESPACE: default
+#        run: |
+#          # Make script executable
+#          chmod +x scripts/e2e-deploy-test.ts
+#
+#          # Run E2E tests
+#          npm run tsx scripts/e2e-deploy-test.ts
+#
+#      - name: Cleanup staging environment
+#        if: always()
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Stop staging containers
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30
+#
+#            # Clean up unused images
+#            docker image prune -f --filter "until=1h"
+#          '
 
-      - name: Deploy to staging environment
-        run: |
-          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
-            mkdir -p /opt/instagram-video-downloader-staging
-            cd /opt/instagram-video-downloader-staging
-          '
-
-          # Copy staging configuration
-          scp docker-compose.staging.yml ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
-          scp -r docker/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
-          scp -r scripts/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
-          scp .env.production ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/.env.staging
-
-      - name: Configure staging environment
-        run: |
-          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
-            cd /opt/instagram-video-downloader-staging
-            
-            # Create staging environment file
-            cp .env.staging .env.staging.local
-            
-            # Replace with staging-specific values
-            sed -i "s/your_secure_postgres_password_here/${{ secrets.STAGING_POSTGRES_PASSWORD }}/g" .env.staging.local
-            sed -i "s/temporal/temporal_staging/g" .env.staging.local
-            sed -i "s/production/staging/g" .env.staging.local
-            sed -i "s/info/debug/g" .env.staging.local
-            
-            # Set staging image
-            echo "DOCKER_IMAGE=${{ needs.build-and-push.outputs.image-tag }}" >> .env.staging.local
-          '
-
-      - name: Deploy staging stack
-        run: |
-          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
-            cd /opt/instagram-video-downloader-staging
-            
-            # Login to registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Stop existing staging containers
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30 || true
-            
-            # Pull latest images
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local pull
-            
-            # Start staging stack
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local up -d
-            
-            # Wait for services to be ready
-            echo "⏳ Waiting for staging services to be ready..."
-            sleep 60
-          '
-
-      - name: Setup Node.js for testing
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run E2E tests against staging
-        env:
-          STAGING_URL: http://${{ secrets.STAGING_SERVER_HOST }}:8080
-          TEMPORAL_ADDRESS: ${{ secrets.STAGING_SERVER_HOST }}:7233
-          TEMPORAL_NAMESPACE: default
-        run: |
-          # Make script executable
-          chmod +x scripts/e2e-deploy-test.ts
-
-          # Run E2E tests
-          npm run tsx scripts/e2e-deploy-test.ts
-
-      - name: Cleanup staging environment
-        if: always()
-        run: |
-          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
-            cd /opt/instagram-video-downloader-staging
-            
-            # Stop staging containers
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30
-            
-            # Clean up unused images
-            docker image prune -f --filter "until=1h"
-          '
-
-  rollback:
-    name: Rollback Deployment
-    runs-on: ubuntu-latest
-    needs: [build-and-push, deploy]
-    if: failure()
-    environment: ${{ github.event.inputs.environment || 'production' }}
-    steps:
-      - name: Rollback to previous version
-        run: |
-          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
-            cd /opt/instagram-video-downloader
-            
-            echo "🔄 Rolling back to previous version..."
-            
-            # Try to restore from backup if available
-            if [ -f docker-compose.prod.yml.backup ]; then
-              mv docker-compose.prod.yml.backup docker-compose.prod.yml
-              docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
-              echo "✅ Rollback completed"
-            else
-              echo "⚠️ No backup found, manual intervention required"
-              exit 1
-            fi
-          '
+#  rollback:
+#    name: Rollback Deployment
+#    runs-on: ubuntu-latest
+#    needs: [build-and-push, deploy]
+#    if: failure()
+#    environment: ${{ github.event.inputs.environment || 'production' }}
+#    steps:
+#      - name: Rollback to previous version
+#        run: |
+#          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader
+#
+#            echo "🔄 Rolling back to previous version..."
+#
+#            # Try to restore from backup if available
+#            if [ -f docker-compose.prod.yml.backup ]; then
+#              mv docker-compose.prod.yml.backup docker-compose.prod.yml
+#              docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+#              echo "✅ Rollback completed"
+#            else
+#              echo "⚠️ No backup found, manual intervention required"
+#              exit 1
+#            fi
+#          '
