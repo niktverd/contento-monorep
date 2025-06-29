@@ -14,6 +14,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.prod.yml"
 
+# Docker Compose project name and volume names
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$PROJECT_ROOT")}"
+LETSENCRYPT_VOLUME="${COMPOSE_PROJECT_NAME}_letsencrypt-certs"
+CERTBOT_WEBROOT_VOLUME="${COMPOSE_PROJECT_NAME}_certbot-webroot"
+
 # Default values
 DEFAULT_DOMAIN="your-domain.com"
 DEFAULT_EMAIL="admin@example.com"
@@ -65,6 +70,7 @@ show_help() {
     echo "Environment Variables:"
     echo "  CERTBOT_DOMAIN - Domain name (fallback if not provided as argument)"
     echo "  CERTBOT_EMAIL  - Email address (fallback if not provided as argument)"
+    echo "  COMPOSE_PROJECT_NAME - Docker Compose project name (default: directory name)"
     echo ""
     echo "This script will:"
     echo "  1. Create dummy certificates for initial NGINX startup"
@@ -73,6 +79,7 @@ show_help() {
     echo "  4. Reload NGINX with SSL configuration"
     echo ""
     echo "Note: Use --non-interactive flag for automated deployments"
+    echo "      Volume names: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
 }
 
 # Check if docker-compose is available
@@ -163,11 +170,29 @@ create_dummy_certificates() {
     local domain="$1"
     
     log_info "Creating dummy SSL certificates for initial setup..."
+    log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
     
-    docker run --rm         -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt         alpine:latest         sh -c "mkdir -p /etc/letsencrypt/live/$domain && mkdir -p /etc/letsencrypt/archive/$domain"
-    
+    # Create certificate directory structure
     docker run --rm \
-        -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "
+            mkdir -p /etc/letsencrypt/live/$domain
+            mkdir -p /etc/letsencrypt/archive/$domain
+        "
+    
+    # Create webroot directory for ACME challenge
+    docker run --rm \
+        -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
+        alpine:latest \
+        sh -c "
+            mkdir -p /var/www/certbot/.well-known/acme-challenge
+            chmod -R 755 /var/www/certbot
+        "
+    
+    # Generate dummy certificates
+    docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
         alpine:latest \
         sh -c "
             apk add --no-cache openssl
@@ -183,8 +208,10 @@ create_dummy_certificates() {
             chmod 600 /etc/letsencrypt/live/$domain/privkey.pem
             echo 'Dummy certificates created for $domain'
         "
+    
+    # Set proper ownership for nginx user (uid 101)
     docker run --rm \
-        -v instagram-video-downloader_letsencrypt-certs:/etc/letsencrypt \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
         alpine:latest \
         sh -c "chown -R 101:101 /etc/letsencrypt/live/$domain /etc/letsencrypt/archive/$domain"
 
@@ -225,11 +252,12 @@ obtain_ssl_certificates() {
     log_info "Obtaining SSL certificates from Let's Encrypt..."
     log_info "Domain: $domain"
     log_info "Email: $email"
+    log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
     
     # Run certbot to obtain certificates
     docker run --rm \
-        -v letsencrypt-certs:/etc/letsencrypt \
-        -v certbot-webroot:/var/www/certbot \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
         certbot/certbot \
         certonly \
         --webroot \
@@ -314,7 +342,7 @@ test_ssl_certificates() {
     
     # Check certificate expiration
     docker run --rm \
-        -v letsencrypt-certs:/etc/letsencrypt \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
         alpine:latest \
         sh -c "
             apk add --no-cache openssl

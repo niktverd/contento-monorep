@@ -301,7 +301,7 @@ services:
       # SSL certificates (Let's Encrypt)
       - letsencrypt-certs:/etc/letsencrypt:ro
       # Certbot webroot for ACME challenge
-      - certbot-webroot:/var/www/certbot:ro
+      - certbot-webroot:/var/www/certbot
       # NGINX logs
       - nginx-logs:/var/log/nginx
     ports:
