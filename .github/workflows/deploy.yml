@@ -201,6 +201,12 @@ jobs:
           echo "🚀 Initializing SSL certificates..."
           /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh --non-interactive ${HETZNER_SERVER_DOMAIN} admin@${HETZNER_SERVER_DOMAIN}
 
+          echo "🚀 Initializing SSL certificates..."
+          # Ensure /etc/letsencrypt/live and /etc/letsencrypt/archive exist in the volume before Certbot runs
+          docker run --rm -v letsencrypt-certs:/etc/letsencrypt alpine:latest sh -c "mkdir -p /etc/letsencrypt/live /etc/letsencrypt/archive"
+
+          /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh --non-interactive ${HETZNER_SERVER_DOMAIN} admin@${HETZNER_SERVER_DOMAIN}
+
           echo "--- Content of nginx.conf inside NGINX container ---"
           docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx cat /etc/nginx/nginx.conf
           echo "--- Contents of /etc/letsencrypt/live/ inside NGINX container ---"
