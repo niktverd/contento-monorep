@@ -201,8 +201,21 @@ jobs:
           echo "🚀 Initializing SSL certificates..."
           /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh --non-interactive ${HETZNER_SERVER_DOMAIN} admin@${HETZNER_SERVER_DOMAIN}
 
+          echo "🔍 Debugging NGINX configuration and certificates..."
+          echo "--- Content of nginx.conf on server ---"
+          cat /opt/instagram-video-downloader/docker/nginx/nginx.conf
+          echo "--- Contents of /etc/letsencrypt/live/ on server ---"
+          ls -laR /opt/instagram-video-downloader/docker/nginx/certs/live/
+          echo "--- Contents of /etc/letsencrypt/archive/ on server ---"
+          ls -laR /opt/instagram-video-downloader/docker/nginx/certs/archive/
+
           echo "🚀 Starting NGINX Proxy..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d nginx
+
+          echo "--- Content of nginx.conf inside NGINX container ---"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx cat /etc/nginx/nginx.conf
+          echo "--- Contents of /etc/letsencrypt/live/ inside NGINX container ---"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx ls -laR /etc/letsencrypt/live/
 
           echo "✅ Deployment completed!"
           DEPLOY_EOF
