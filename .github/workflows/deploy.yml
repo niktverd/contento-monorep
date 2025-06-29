@@ -126,7 +126,7 @@ jobs:
           # Create secure deployment script with environment variables
           cat > deploy_script.sh << 'DEPLOY_EOF'
           #!/bin/bash
-          set -e
+          set -ex
 
           cd /opt/instagram-video-downloader
 

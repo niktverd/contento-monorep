@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 
 # ===============================================
 # SSL Certificate Initialization Script
@@ -185,8 +186,14 @@ create_dummy_certificates() {
                 -subj '/CN=$domain'
             
             # Create chain.pem (same as fullchain for dummy cert)
-            cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/chain.pem
-            
+            cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/fullchain.pem
+
+            # Set appropriate permissions for NGINX to read
+            chmod -R 755 /etc/letsencrypt/live/$domain
+            chmod -R 755 /etc/letsencrypt/archive/$domain
+            chmod 644 /etc/letsencrypt/live/$domain/fullchain.pem
+            chmod 600 /etc/letsencrypt/live/$domain/privkey.pem
+
             echo 'Dummy certificates created for $domain'
         "
     
