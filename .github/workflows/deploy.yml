@@ -136,6 +136,8 @@ jobs:
           export APP_ID="${APP_ID}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
+          export HETZNER_SERVER_DOMAIN="${HETZNER_SERVER_DOMAIN}"
+          export HETZNER_SERVER_HOST="${HETZNER_SERVER_HOST}"
 
           # Handle credentials - check if they are base64 encoded or direct JSON
           if [[ "${GOOGLE_APPLICATION_CREDENTIALS}" =~ ^[A-Za-z0-9+/]*={0,2}$ ]] && [ ${#GOOGLE_APPLICATION_CREDENTIALS} -gt 100 ]; then
@@ -197,9 +199,6 @@ jobs:
 
           echo "🚀 Starting Application and Workers..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker
-
-          echo "🚀 Initializing SSL certificates..."
-          /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh --non-interactive ${HETZNER_SERVER_DOMAIN} admin@${HETZNER_SERVER_DOMAIN}
 
           echo "🚀 Initializing SSL certificates..."
           # Ensure /etc/letsencrypt/live and /etc/letsencrypt/archive exist in the volume before Certbot runs

@@ -164,43 +164,32 @@ create_dummy_certificates() {
     
     log_info "Creating dummy SSL certificates for initial setup..."
     
-    # Create certificate directory structure
-    docker run --rm \
-        -v letsencrypt-certs:/etc/letsencrypt \
-        alpine:latest \
-        sh -c "
-            mkdir -p /etc/letsencrypt/live/$domain
-            mkdir -p /etc/letsencrypt/archive/$domain
-        "
-    
-    # Generate dummy certificates
-    docker run --rm \
-        -v letsencrypt-certs:/etc/letsencrypt \
-        alpine:latest \
-        sh -c "
-            apk add --no-cache openssl
-            openssl req -x509 -nodes -newkey rsa:2048 \
-                -days 1 \
-                -keyout /etc/letsencrypt/live/$domain/privkey.pem \
-                -out /etc/letsencrypt/live/$domain/fullchain.pem \
-                -subj '/CN=$domain'
-            
-            # Create chain.pem (same as fullchain for dummy cert)
-            cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/fullchain.pem
+    # Create certificate directory structure and generate dummy certificates using docker-compose
+    # This ensures the volume is correctly named and accessible by NGINX
+    docker-compose -f "$DOCKER_COMPOSE_FILE" run --rm --no-deps nginx sh -c "
+        mkdir -p /etc/letsencrypt/live/$domain
+        mkdir -p /etc/letsencrypt/archive/$domain
+        apk add --no-cache openssl
+        openssl req -x509 -nodes -newkey rsa:2048 \
+            -days 1 \
+            -keyout /etc/letsencrypt/live/$domain/privkey.pem \
+            -out /etc/letsencrypt/live/$domain/fullchain.pem \
+            -subj '/CN=$domain'
+        
+        # Create chain.pem (same as fullchain for dummy cert)
+        cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/chain.pem
 
-            # Set appropriate permissions for NGINX to read
-            chmod -R 755 /etc/letsencrypt/live/$domain
-            chmod -R 755 /etc/letsencrypt/archive/$domain
-            chmod 644 /etc/letsencrypt/live/$domain/fullchain.pem
-            chmod 600 /etc/letsencrypt/live/$domain/privkey.pem
+        # Set appropriate permissions for NGINX to read
+        chmod -R 755 /etc/letsencrypt/live/$domain
+        chmod -R 755 /etc/letsencrypt/archive/$domain
+        chmod 644 /etc/letsencrypt/live/$domain/fullchain.pem
+        chmod 600 /etc/letsencrypt/live/$domain/privkey.pem
 
-            echo 'Dummy certificates created for $domain'
-        "
-    # Explicitly set ownership to NGINX user (UID 101, GID 101)
-    docker run --rm \
-        -v letsencrypt-certs:/etc/letsencrypt \
-        alpine:latest \
-        sh -c "chown -R 101:101 /etc/letsencrypt/live/$domain /etc/letsencrypt/archive/$domain"
+        # Explicitly set ownership to NGINX user (UID 101, GID 101)
+        chown -R 101:101 /etc/letsencrypt/live/$domain /etc/letsencrypt/archive/$domain
+
+        echo 'Dummy certificates created for $domain'
+    "
 
     log_success "Dummy SSL certificates created"
 }
