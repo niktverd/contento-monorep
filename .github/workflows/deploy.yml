@@ -271,7 +271,7 @@ jobs:
             # Run communication verification script
             if [ -f scripts/verify-communication.ts ]; then
               echo "🔍 Running communication verification..."
-              docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app npm run tsx scripts/verify-communication.ts || {
+              docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app node dist/scripts/verify-communication.js || {
                 echo "⚠️ Communication verification failed, but deployment continues"
               }
             fi
@@ -282,7 +282,7 @@ jobs:
           ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
             # Remove unused Docker images to save space
             docker image prune -f --filter "until=24h"
-            docker system prune -f --volumes --filter "until=24h"
+            docker system prune -f --volumes
           '
 
       - name: Display deployment summary
