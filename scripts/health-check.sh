@@ -173,11 +173,17 @@ check_worker_connectivity() {
 check_app_connectivity() {
     log_info "Testing App connectivity..."
     
+    # Give the app some time to start up
+    sleep 10
+
     # Test app health endpoint
-    if docker exec instagram-app-prod wget --quiet --tries=1 --spider http://localhost:8080/health 2>/dev/null; then
-        log_success "App health endpoint: OK"
+    if docker exec instagram-app-prod wget --quiet --tries=1 --spider http://localhost:8080/api/ping 2>/dev/null; then
+        log_success "App health endpoint (/api/ping): OK"
     else
-        log_error "App health endpoint: FAILED"
+        log_error "App health endpoint (/api/ping): FAILED"
+        log_info "--- Last 50 lines of logs for instagram-app-prod ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 instagram-app-prod || true
+        log_info "------------------------------------------------"
         return 1
     fi
     
