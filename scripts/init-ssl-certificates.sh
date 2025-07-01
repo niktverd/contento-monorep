@@ -224,7 +224,7 @@ start_nginx_for_acme() {
     local NGINX_WAIT_INTERVAL=5 # seconds
     local elapsed_time=0
 
-    while ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T nginx wget --quiet --tries=1 --spider http://localhost:80/api/ping 2>/dev/null; do
+    while ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; do
         if [[ $elapsed_time -ge $NGINX_WAIT_TIMEOUT ]]; then
             log_error "NGINX did not become ready within ${NGINX_WAIT_TIMEOUT} seconds."
             log_error "Check NGINX logs for details: docker-compose logs nginx"
