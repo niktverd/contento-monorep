@@ -93,7 +93,7 @@ async function runTest(testName: string, testFn: () => Promise<void>): Promise<v
 
 // Test functions
 async function testHealthEndpoint(): Promise<void> {
-    const response = await makeHttpRequest(`${config.staging.baseUrl}/health`, config.timeout);
+    const response = await makeHttpRequest(`${config.staging.baseUrl}/api/ping`, config.timeout);
 
     if (response.statusCode !== 200) {
         throw new Error(`Health endpoint returned ${response.statusCode}, expected 200`);
@@ -107,8 +107,8 @@ async function testHealthEndpoint(): Promise<void> {
         throw new Error('Health endpoint returned invalid JSON');
     }
 
-    if (healthData.status !== 'ok') {
-        throw new Error(`Health status is '${healthData.status}', expected 'ok'`);
+    if (healthData.status !== 'success') {
+        throw new Error(`Health status is '${healthData.status}', expected 'success'`);
     }
 
     console.log(`    ℹ️ Health check response: ${JSON.stringify(healthData, null, 2)}`);
@@ -189,14 +189,7 @@ async function testWorkflowExecution(): Promise<void> {
 
 async function testDatabaseConnection(): Promise<void> {
     // Test database connection via application health endpoint
-    const response = await makeHttpRequest(`${config.staging.baseUrl}/health/db`, config.timeout);
-
-    // If DB health endpoint doesn't exist, fall back to general health
-    if (response.statusCode === 404) {
-        console.log(`    ⚠️ DB health endpoint not found, using general health endpoint`);
-        await testHealthEndpoint();
-        return;
-    }
+    const response = await makeHttpRequest(`${config.staging.baseUrl}/api/ping`, config.timeout);
 
     if (response.statusCode !== 200) {
         throw new Error(`Database health endpoint returned ${response.statusCode}, expected 200`);
@@ -208,7 +201,7 @@ async function testDatabaseConnection(): Promise<void> {
 async function testContainerHealth(): Promise<void> {
     // Test all critical endpoints to ensure containers are healthy
     const endpoints = [
-        {name: 'Application API', url: `${config.staging.baseUrl}/health`},
+        {name: 'Application API', url: `${config.staging.baseUrl}/api/ping`},
         {name: 'Metrics', url: `${config.staging.baseUrl}/metrics`},
         {name: 'Temporal UI', url: `${config.staging.baseUrl}/temporal`},
     ];
@@ -229,7 +222,7 @@ async function testContainerHealth(): Promise<void> {
 async function testResourceUsage(): Promise<void> {
     // Basic test to ensure services are responding within reasonable time
     const startTime = Date.now();
-    await makeHttpRequest(`${config.staging.baseUrl}/health`, 5000);
+    await makeHttpRequest(`${config.staging.baseUrl}/api/ping`, 5000);
     const responseTime = Date.now() - startTime;
 
     if (responseTime > 3000) {

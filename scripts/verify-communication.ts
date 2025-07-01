@@ -20,7 +20,7 @@ const config = {
         url: process.env.DATABASE_URL || 'postgresql://temporal:password@postgresql:5432/temporal',
     },
     app: {
-        healthUrl: 'http://localhost:8080/health',
+        healthUrl: 'http://localhost:8080/api/ping',
         port: parseInt(process.env.PORT || '8080', 10),
     },
     timeout: 30000, // 30 seconds
