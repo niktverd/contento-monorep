@@ -3,6 +3,7 @@ import {videoProcessingWorkflow} from '../workflows';
 
 import {getTemporalClient} from '#src/sections/temporal/client';
 import {RunProcessingActivityArgs, RunProcessingActivityResponse} from '#src/types/temporal';
+import {IAccount, IScenario, ISource} from '#types';
 import {log} from '#utils';
 
 // eslint-disable-next-line valid-jsdoc
@@ -15,12 +16,9 @@ export async function runProcessingActivity(
     const client = await getTemporalClient();
     const taskQueue = process.env.TEMPORAL_TASK_QUEUE || 'video-processing';
     const {source, account, scenario} = input as {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        source: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        account: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        scenario: any;
+        source: ISource;
+        account: IAccount;
+        scenario: IScenario;
     };
 
     // Generate unique workflow ID

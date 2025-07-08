@@ -1,10 +1,4 @@
-import {
-    continueAsNew,
-    proxyActivities,
-    sleep,
-    startChild,
-    log as workflowLog,
-} from '@temporalio/workflow';
+import {continueAsNew, proxyActivities, sleep, log as workflowLog} from '@temporalio/workflow';
 
 import type {IPreparedVideo} from '../../types/preparedVideo';
 import type * as activities from '../activities';
@@ -17,6 +11,7 @@ const {
     publishInstagramPost: publishPost,
     getAccountsActivity: getAccounts,
     getRandomPreparedVideForAccountActivity: getRandomPreparedVideo,
+    runPublishingActivity: runPublishing,
 } = proxyActivities<typeof activities>({
     startToCloseTimeout: '10 minutes', // Instagram container creation + publishing
     scheduleToCloseTimeout: '15 minutes',
@@ -50,21 +45,9 @@ export async function publishingScheduleWorkflow(): Promise<void> {
                 continue;
             }
 
-            await startChild(videoPublishingWorkflow, {
-                workflowId: `video-publishing-exec-${randomPreparedVideo.id}`,
-                taskQueue: 'process-video-publishing',
-                args: [randomPreparedVideo, account],
-                // Явно указывай нужные опции:
-                workflowExecutionTimeout: '1 hour',
-                workflowRunTimeout: '1 hour',
-                workflowTaskTimeout: '1 minute',
-                retry: {
-                    maximumAttempts: 3,
-                    initialInterval: '10s',
-                    maximumInterval: '1m',
-                    backoffCoefficient: 2,
-                },
-                parentClosePolicy: 'ABANDON', // или ABANDON, WAIT_CANCELLATION_COMPLETED
+            await runPublishing({
+                preparedVideo: randomPreparedVideo,
+                account,
             });
         } catch (error) {
             workflowLog.error(

@@ -10,4 +10,5 @@ export {
     getRandomPreparedVideForAccountActivity,
 } from './instagram.activity';
 export {runProcessingActivity} from './run-processing.activity';
+export {runPublishingActivity} from './run-publishing.activity';
 // export {publishVideoToInstagram} from './publish-video-to-instagram.activity';

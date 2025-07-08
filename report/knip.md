@@ -8,9 +8,9 @@
 * src/sections/cloud-run/components/scenarios/CoverWithImage.ts
 * src/sections/cloud-run/components/scenarios/LognVideoWithShortInjections.ts
 * src/sections/cloud-run/components/scenarios/common.ts
+* src/sections/temporal/controllers/video-publishing.controller.ts
 * src/sections/youtube/components/youtube.ts
 * src/temporal/activities/configs.ts
-* src/temporal/activities/instagram.activity.ts
 * src/temporal/worker.ts
 * src/tests/requests/imitateInstagramMessageWebhook.ts
 * src/utils/migrationHelper.ts
@@ -55,7 +55,7 @@
 | :------------------------- | :--------------------------------------------------------- | :------- |
 | #schemas/handlers/temporal | src/sections/temporal/components/workflow.component.ts:9:9 | error    |
 
-## Unused exports (17)
+## Unused exports (16)
 
 | Name                                        | Location                                                              | Severity |
 | :------------------------------------------ | :-------------------------------------------------------------------- | :------- |
@@ -69,7 +69,6 @@
 | TemporalHealthResponseSchema                | src/types/schemas/handlers/temporal.ts:37:14                          | error    |
 | StartVideoDownloadingWorkflowResponseSchema | src/types/schemas/handlers/temporal.ts:8:14                           | error    |
 | default                                     | src/types/models/InstagramLocation.ts:24:8                            | error    |
-| closeTemporalClient                         | src/sections/temporal/client.ts:130:23                                | error    |
 | cancelWorkflow                              | src/sections/temporal/client.ts:119:23                                | error    |
 | fetchDelete                                 | src/utils/fetchHelpers.ts:106:14                                      | error    |
 | usaText                                     | src/config/places/usa.ts:55:14                                        | error    |

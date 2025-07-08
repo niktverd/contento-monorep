@@ -113,3 +113,17 @@ export const VideoPublishingWorkflowArgsSchema = z.object({
 });
 
 export type VideoPublishingWorkflowArgs = z.infer<typeof VideoPublishingWorkflowArgsSchema>;
+
+// Add Run Publishing Activity Types
+export const RunPublishingActivityArgsSchema = z.object({
+    preparedVideo: PreparedVideoSchema,
+    account: AccountSchema,
+});
+export type RunPublishingActivityArgs = z.infer<typeof RunPublishingActivityArgsSchema>;
+
+export const RunPublishingActivityResponseSchema = z.object({
+    success: z.boolean(),
+    workflowId: z.string(),
+    runId: z.string(),
+});
+export type RunPublishingActivityResponse = z.infer<typeof RunPublishingActivityResponseSchema>;
