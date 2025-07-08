@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import {Request, Response} from 'express';
 
 import {createSource, wrapper} from '#src/db';
+import {startVideoDownloadingWorkflow} from '#src/sections/temporal/client';
 import {ApiFunctionPrototype} from '#src/types/common';
 import {MessageWebhookV3Params, MessageWebhookV3Response} from '#src/types/instagramApi';
 import {MessageWebhookV3Schema} from '#src/types/schemas/handlers';
@@ -95,6 +96,9 @@ const messageWebhookV3: ApiFunctionPrototype<
 
     const sourceRecord = await createSource(data, db);
     log('firestoreDoc', sourceRecord);
+    await startVideoDownloadingWorkflow({
+        sourceId: sourceRecord.result.id,
+    });
 
     return {
         result: {

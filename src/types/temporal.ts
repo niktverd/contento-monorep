@@ -1,6 +1,6 @@
 import {z} from 'zod';
 
-import {AccountSchema, ScenarioSchema, SourceSchema} from './schemas/models';
+import {AccountSchema, PreparedVideoSchema, ScenarioSchema, SourceSchema} from './schemas/models';
 
 // Activities
 export const DownloadVideoActivityArgsSchema = z.object({
@@ -56,23 +56,21 @@ export const VideoWorkflowInputSchema = DownloadVideoActivityArgsSchema.extend({
 export type VideoWorkflowInput = z.infer<typeof VideoWorkflowInputSchema>;
 
 export const CreateInstagramContainerInputSchema = z.object({
-    processedVideoUrl: z.string(),
-    accountId: z.number(),
-    scenarioId: z.number(),
-    sourceId: z.number(),
+    preparedVideo: PreparedVideoSchema,
 });
 
 export const CreateInstagramContainerResultSchema = z.object({
     success: z.boolean(),
     mediaContainerId: z.string().optional(),
     creationId: z.string().optional(),
+    instagramMediaContainerId: z.number().optional(),
     error: z.string().optional(),
 });
 
 export const PublishInstagramPostInputSchema = z.object({
-    mediaContainerId: z.string(),
-    accountId: z.number(),
-    creationId: z.string(),
+    mediaContainerId: z.string().optional(),
+    account: AccountSchema.optional(),
+    instagramMediaContainerId: z.number().optional(),
 });
 
 export const PublishInstagramPostResultSchema = z.object({
@@ -85,3 +83,33 @@ export type CreateInstagramContainerInput = z.infer<typeof CreateInstagramContai
 export type CreateInstagramContainerResult = z.infer<typeof CreateInstagramContainerResultSchema>;
 export type PublishInstagramPostInput = z.infer<typeof PublishInstagramPostInputSchema>;
 export type PublishInstagramPostResult = z.infer<typeof PublishInstagramPostResultSchema>;
+
+// Video Publishing Workflow
+export const VideoForPublishingSchema = z.object({
+    preparedVideo: PreparedVideoSchema,
+});
+
+export type VideoForPublishing = z.infer<typeof VideoForPublishingSchema>;
+
+export const PublishVideoToInstagramActivityInputSchema = z.object({
+    video: VideoForPublishingSchema,
+});
+
+export const PublishVideoToInstagramActivityResultSchema = z.object({
+    success: z.boolean(),
+    postId: z.string().optional(),
+    error: z.string().optional(),
+});
+
+export type PublishVideoToInstagramActivityInput = z.infer<
+    typeof PublishVideoToInstagramActivityInputSchema
+>;
+export type PublishVideoToInstagramActivityResult = z.infer<
+    typeof PublishVideoToInstagramActivityResultSchema
+>;
+
+export const VideoPublishingWorkflowArgsSchema = z.object({
+    // Empty for now - workflow starts without args and receives videos via signals
+});
+
+export type VideoPublishingWorkflowArgs = z.infer<typeof VideoPublishingWorkflowArgsSchema>;

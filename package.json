@@ -46,6 +46,7 @@
     "dc": "npx depcruise --include-only \"^src\" --output-type dot src | dot -T svg > report/dependency-graph.svg",
     "prepare": "husky",
     "migrate": "knex migrate:latest",
+    "migrate:verbose": "npx ts-node scripts/run-migrations.ts",
     "migrate:make": "knex migrate:make",
     "migrate:rollback": "knex migrate:rollback",
     "migrate:firestore": "ts-node src/scripts/migrateToPostgres.ts",

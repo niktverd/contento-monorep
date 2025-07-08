@@ -87,17 +87,66 @@ check_postgres_connectivity() {
         return 1
     fi
     
-    # Test database connection from app
+    # Test Temporal database connection (temporal DB with temporal user)
     if docker exec instagram-app-prod node -e "
         const { Pool } = require('pg');
         const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-        pool.query('SELECT NOW()')
-            .then(() => { console.log('Database connection successful'); process.exit(0); })
-            .catch(err => { console.error('Database connection failed:', err.message); process.exit(1); });
+        pool.query('SELECT NOW(), current_database(), current_user')
+            .then(result => { 
+                console.log('Temporal DB connection successful - Database:', result.rows[0].current_database, 'User:', result.rows[0].current_user); 
+                process.exit(0); 
+            })
+            .catch(err => { 
+                console.error('Temporal DB connection failed:', err.message); 
+                process.exit(1); 
+            });
     " 2>/dev/null; then
-        log_success "App → PostgreSQL connection: OK"
+        log_success "App → Temporal DB (temporal) connection: OK"
     else
-        log_error "App → PostgreSQL connection: FAILED"
+        log_error "App → Temporal DB (temporal) connection: FAILED"
+        return 1
+    fi
+    
+    # Test Application database connection (app_db with app_user)
+    if docker exec instagram-app-prod node -e "
+        const { Pool } = require('pg');
+        const pool = new Pool({ connectionString: process.env.APP_DATABASE_URL });
+        pool.query('SELECT NOW(), current_database(), current_user')
+            .then(result => { 
+                console.log('App DB connection successful - Database:', result.rows[0].current_database, 'User:', result.rows[0].current_user); 
+                process.exit(0); 
+            })
+            .catch(err => { 
+                console.error('App DB connection failed:', err.message); 
+                process.exit(1); 
+            });
+    " 2>/dev/null; then
+        log_success "App → Application DB (app_db) connection: OK"
+    else
+        log_error "App → Application DB (app_db) connection: FAILED"
+        return 1
+    fi
+    
+    # Test database isolation - app_user should NOT be able to access temporal database
+    if docker exec instagram-app-prod node -e "
+        const { Pool } = require('pg');
+        const appDbUrl = process.env.APP_DATABASE_URL;
+        // Replace app_db with temporal in the connection string to test access
+        const temporalTestUrl = appDbUrl.replace('/app_db', '/temporal');
+        const pool = new Pool({ connectionString: temporalTestUrl });
+        pool.query('SELECT NOW()')
+            .then(() => { 
+                console.error('SECURITY VIOLATION: app_user can access temporal database!'); 
+                process.exit(1); 
+            })
+            .catch(err => { 
+                console.log('Database isolation confirmed: app_user cannot access temporal DB (expected)'); 
+                process.exit(0); 
+            });
+    " 2>/dev/null; then
+        log_success "Database isolation: app_user → temporal DB access properly denied"
+    else
+        log_error "Database isolation: SECURITY ISSUE - app_user can access temporal DB"
         return 1
     fi
     
@@ -267,7 +316,7 @@ main() {
         fi
     done
     
-    # 2. Check database connectivity
+    # 2. Check database connectivity (both Temporal and Application databases)
     log_info "📋 Step 2: Checking database connectivity..."
     if ! check_postgres_connectivity; then
         ((failed_checks++))

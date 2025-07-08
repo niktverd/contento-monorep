@@ -11,24 +11,14 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore/lite';
-import knex from 'knex';
 import {shuffle} from 'lodash';
 
-import {getVideoDuration} from '../../cloud-run/components/video';
 import {uploadYoutubeVideo} from '../../youtube/components/youtube';
 
 import {firestore} from '#config/firebase';
 import {Collection, DelayMS, SECOND_VIDEO, accessTokensArray} from '#src/constants';
-import {dbConfig, deleteSource, getAllAccounts, getOneSource, updateSource} from '#src/db';
-import {ThrownError} from '#src/utils/error';
 import {MediaPostModel, Sources} from '#types';
-import {
-    getInstagramPropertyName,
-    log,
-    preparePostText,
-    publishBulkRunScenarioMessages,
-    uploadFileFromUrl,
-} from '#utils';
+import {getInstagramPropertyName, log, preparePostText} from '#utils';
 import {createInstagramPostContainer, getMergedVideo} from '$/instagram/components';
 
 dotenv.config();
@@ -171,98 +161,5 @@ export const preprocessVideo = (ms: number) => {
         }
 
         preprocessVideo(DelayMS.Sec1);
-    }, ms);
-};
-
-export const downloadVideoCron = (ms: number, calledFromApi = false) => {
-    if (process.env.ENABLE_DOWNLOAD_VIDEO !== 'true' && !calledFromApi) {
-        log('downloadVideoCron', 'blocked');
-        return;
-    }
-    log('downloadVideoCron', 'started in', ms, 'ms');
-
-    setTimeout(async () => {
-        const db = knex(dbConfig);
-        const {result: randomSource} = await getOneSource(
-            {random: true, emptyFirebaseUrl: true},
-            db,
-        );
-        if (!randomSource) {
-            log('all videos are downloaded');
-            downloadVideoCron(DelayMS.Min5);
-            return;
-        }
-        const medias = [randomSource];
-
-        log('sources length:', medias.length);
-
-        for (const media of medias) {
-            const mediaId = media.id as number;
-            log('working with source id: ', mediaId);
-            try {
-                for (let attempt = 0; attempt < 2; attempt++) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const sourceUrl = (media.sources as any)?.instagramReel?.url;
-                    if (!sourceUrl) {
-                        throw new ThrownError('media.sources.instagramReel is empty', 400);
-                    }
-
-                    const downloadURL = await uploadFileFromUrl({
-                        url: sourceUrl,
-                        fileName: `instagramReel-id-${media.id}`,
-                    });
-
-                    log('Файл успешно загружен:', downloadURL);
-
-                    const duration = await getVideoDuration(downloadURL);
-                    log('duration:', duration);
-
-                    const updatedSource = await updateSource(
-                        {
-                            id: mediaId,
-                            firebaseUrl: downloadURL,
-                            duration,
-                        },
-                        db,
-                    );
-                    log('duration and url updated', updatedSource);
-
-                    // Get scenarios and accounts to send bulk messages
-                    const {result: accounts} = await getAllAccounts({}, db);
-
-                    // Publish bulk messages for each account and scenario pair
-                    if (accounts.length > 0) {
-                        log('publishing bulk messages...');
-                        const {success, count} = await publishBulkRunScenarioMessages(
-                            mediaId,
-                            accounts,
-                        );
-                        log(
-                            `Published ${count} messages for ${accounts.length} accounts. Success: ${success}`,
-                        );
-                    } else {
-                        log('No scenarios or accounts found for bulk publishing');
-                    }
-
-                    break;
-                }
-            } catch (error) {
-                log({preprocessVideoCatch: error});
-
-                if (media.attempt) {
-                    await deleteSource({id: mediaId}, db);
-                } else {
-                    await updateSource({id: mediaId, attempt: 2}, db);
-                }
-            } finally {
-                if (existsSync(mediaId.toString())) {
-                    rmSync(mediaId.toString(), {maxRetries: 2, force: true, recursive: true});
-                }
-            }
-        }
-
-        if (!calledFromApi) {
-            downloadVideoCron(DelayMS.Sec1);
-        }
     }, ms);
 };

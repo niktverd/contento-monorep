@@ -37,7 +37,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          # cpus: '2'
           memory: 8G
     networks:
       - app-dev-net
@@ -58,8 +58,29 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          # cpus: '2'
           memory: 8G
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+
+  publishing-worker:
+    image: instagram-video-downloader:dev
+    command: npm run start:publishing-worker
+    container_name: publishing_worker_dev
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 4G
     networks:
       - app-dev-net
       - temporal-network

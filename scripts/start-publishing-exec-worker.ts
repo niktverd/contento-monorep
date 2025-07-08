@@ -1,13 +1,15 @@
 // eslint-disable-next-line import/order, import/no-extraneous-dependencies
 import 'module-alias/register';
+
 import {NativeConnection, Worker} from '@temporalio/worker';
 import dotenv from 'dotenv';
 
+import {} from '../src/temporal/activities';
 import {
-    downloadVideo,
-    getAccountsActivity,
-    runProcessingActivity,
-} from '../src/temporal/activities';
+    createInstagramContainer,
+    // getRandomPreparedVideForAccountActivity,
+    publishInstagramPost,
+} from '../src/temporal/activities/instagram.activity';
 
 dotenv.config();
 
@@ -42,7 +44,7 @@ async function gracefulShutdown(worker: Worker, signal: string) {
             ),
         ]);
 
-        console.log('✅ Downloading worker shutdown complete');
+        console.log('✅ Publishing worker shutdown complete');
         process.exit(0);
     } catch (error) {
         console.error('❌ Error during worker shutdown:', error);
@@ -56,7 +58,7 @@ async function createWorkerWithRetry(): Promise<Worker> {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             console.log(
-                `🔄 Attempt ${attempt}/${MAX_RETRIES}: Creating Temporal downloading worker...`,
+                `🔄 Attempt ${attempt}/${MAX_RETRIES}: Creating Temporal publishing worker...`,
             );
 
             const connection = await NativeConnection.connect({
@@ -65,19 +67,20 @@ async function createWorkerWithRetry(): Promise<Worker> {
 
             const worker = await Worker.create({
                 connection,
-                namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-                taskQueue: process.env.DOWNLOADING_WORKER_TASK_QUEUE || 'video-downloading',
+                namespace: 'default',
+                taskQueue: 'process-video-publishing',
                 workflowsPath: require.resolve('../src/temporal/workflows'),
                 activities: {
-                    downloadVideo,
-                    getAccountsActivity,
-                    runProcessingActivity,
+                    createInstagramContainer,
+                    publishInstagramPost,
+                    // getRandomPreparedVideForAccountActivity,
                 },
-                maxConcurrentActivityTaskExecutions: 15,
-                maxConcurrentWorkflowTaskExecutions: 25,
+                maxConcurrentActivityTaskExecutions: 20,
+                maxConcurrentWorkflowTaskExecutions: 20,
+                stickyQueueScheduleToStartTimeout: '5m',
             });
 
-            console.log('✅ Downloading worker created successfully');
+            console.log('✅ Publishing worker created successfully');
             return worker;
         } catch (error) {
             lastError = error as Error;
@@ -97,14 +100,14 @@ async function createWorkerWithRetry(): Promise<Worker> {
 }
 
 async function startWorker() {
-    console.log('🚀 Starting Temporal downloading worker...');
+    console.log('🚀 Starting Temporal publishing worker...');
 
     try {
         const worker = await createWorkerWithRetry();
 
-        console.log('📋 Task Queue: video-downloading');
-        console.log('🔄 Max concurrent activities: 15');
-        console.log('🔄 Max concurrent workflows: 25');
+        console.log('📋 Task Queue: video-publishing');
+        console.log('🔄 Max concurrent activities: 1');
+        console.log('🔄 Max concurrent workflows: 1');
 
         // Setup enhanced graceful shutdown for multiple signals
         const signals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
@@ -114,13 +117,13 @@ async function startWorker() {
 
         // Handle uncaught exceptions
         process.on('uncaughtException', (error) => {
-            console.error('❌ Uncaught Exception in downloading worker:', error);
+            console.error('❌ Uncaught Exception in publishing worker:', error);
             process.exit(1);
         });
 
         process.on('unhandledRejection', (reason, promise) => {
             console.error(
-                '❌ Unhandled Rejection in downloading worker at:',
+                '❌ Unhandled Rejection in publishing worker at:',
                 promise,
                 'reason:',
                 reason,
@@ -128,15 +131,15 @@ async function startWorker() {
             process.exit(1);
         });
 
-        console.log('🏃 Downloading worker is running. Press Ctrl+C to stop.');
+        console.log('🏃 Publishing worker is running. Press Ctrl+C to stop.');
         await worker.run();
     } catch (error) {
-        console.error('❌ Failed to start downloading worker:', error);
+        console.error('❌ Failed to start publishing worker:', error);
         process.exit(1);
     }
 }
 
 startWorker().catch((err) => {
-    console.error('❌ Downloading worker startup error:', err);
+    console.error('❌ Publishing worker startup error:', err);
     process.exit(1);
 });

@@ -121,16 +121,3 @@ export async function cancelWorkflow(workflowId: string, _reason?: string): Prom
     const handle = client.workflow.getHandle(workflowId);
     await handle.cancel();
 }
-
-// eslint-disable-next-line valid-jsdoc
-/**
- * Close Temporal client connection
- * Should be called on application shutdown
- */
-export async function closeTemporalClient(): Promise<void> {
-    if (temporalClient) {
-        await temporalClient.connection.close();
-        temporalClient = null;
-        console.log('Temporal client connection closed');
-    }
-}

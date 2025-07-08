@@ -33,6 +33,7 @@ import {
     getInstagramAccountInsightsGet,
     getInstagramMediaContainerByIdGet,
     getInstagramMediaContainersStatisticsByDaysGet,
+    getOnePreparedVideoGet,
     getOneSourceGet,
     getPreparedVideoByIdGet,
     getPreparedVideosStatisticsByDaysGet,
@@ -134,5 +135,7 @@ router.get('/get-cloud-run-scenario-execution', getAllCloudRunScenarioExecutionG
 router.patch('/update-cloud-run-scenario-execution', updateCloudRunScenarioExecutionStatusPatch);
 
 router.get('/get-insights-report', getInsightsInstagramReportGet);
+
+router.get('/get-one-prepared-video', getOnePreparedVideoGet);
 
 export default router;

@@ -78,7 +78,7 @@ clusterMetadata:
     active:
       enabled: true
       initialFailoverVersion: 1
-      rpcAddress: '127.0.0.1:7233'
+      rpcAddress: 'temporal:7233'
 
 dcRedirectionPolicy:
   policy: 'noop'

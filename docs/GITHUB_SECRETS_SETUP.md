@@ -25,12 +25,17 @@ Add the following secrets to your GitHub repository:
 
 10. `FIREBASE_CONFIG` - Your Firebase configuration (JSON format)
 
+### Database Configuration
+
+11. `POSTGRES_PASSWORD` - PostgreSQL password for Temporal user (existing)
+12. `APP_POSTGRES_PASSWORD` - PostgreSQL password for application database user (app_user)
+
 ### YouTube API Secrets
 
-11. `YT_CLOUD_ID` - YouTube cloud ID
-12. `YT_SECRET_ID` - YouTube secret ID
-13. `YT_REDIRECT_URL` - YouTube redirect URL
-14. `YT_REFRESH_TOKEN` - YouTube refresh token
+13. `YT_CLOUD_ID` - YouTube cloud ID
+14. `YT_SECRET_ID` - YouTube secret ID
+15. `YT_REDIRECT_URL` - YouTube redirect URL
+16. `YT_REFRESH_TOKEN` - YouTube refresh token
 
 ## How to Add Secrets to GitHub Repository
 
@@ -40,6 +45,27 @@ Add the following secrets to your GitHub repository:
 4. Click "New repository secret"
 5. Enter the name of the secret and its value
 6. Click "Add secret"
+
+### Setting Up APP_POSTGRES_PASSWORD
+
+The `APP_POSTGRES_PASSWORD` secret is used for the dedicated application database user (`app_user`). This password should be:
+
+- **Strong and unique** (different from POSTGRES_PASSWORD)
+- **At least 12 characters** with a mix of uppercase, lowercase, numbers, and special characters
+- **URL-safe** (avoid characters that might cause issues in connection strings: `@`, `:`, `/`, `?`, `#`, `[`, `]`)
+
+**Example strong password format:** `MyApp2025$ecure!Pass`
+
+**Steps to add:**
+
+1. Generate a strong password using a password manager
+2. In GitHub repository settings → Secrets and variables → Actions
+3. Click "New repository secret"
+4. Name: `APP_POSTGRES_PASSWORD`
+5. Value: Your generated strong password
+6. Click "Add secret"
+
+**Security Note:** This password will be used to create the `app_user` database account that has access only to the `app_db` database, providing isolation from Temporal's internal data.
 
 ## Creating a Service Account Key for GCP
 

@@ -1,9 +1,8 @@
 // Video Processing Workflow for Temporal
 import {proxyActivities, log as workflowLog} from '@temporalio/workflow';
 
+import type {VideoDownloadingWorkflowArgs} from '../../types/temporal';
 import type * as activities from '../activities';
-
-import {VideoDownloadingWorkflowArgs} from '#src/types/temporal';
 
 // Configure activity proxies with appropriate timeouts for each operation type
 const {downloadVideo, getAccountsActivity, runProcessingActivity} = proxyActivities<

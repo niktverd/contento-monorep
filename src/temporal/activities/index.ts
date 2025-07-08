@@ -4,5 +4,10 @@
 export {downloadVideo} from './download.activity';
 export {getAccountsActivity} from './get-accounts.activity';
 export {processVideo} from './process.activity';
-// export {createInstagramContainer, publishInstagramPost} from './instagram.activity';
+export {
+    createInstagramContainer,
+    publishInstagramPost,
+    getRandomPreparedVideForAccountActivity,
+} from './instagram.activity';
 export {runProcessingActivity} from './run-processing.activity';
+// export {publishVideoToInstagram} from './publish-video-to-instagram.activity';

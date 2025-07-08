@@ -58,18 +58,10 @@ async function testDatabaseConnection(): Promise<boolean> {
         const client = await pool.connect();
         console.log('   ✅ Database connection established');
 
-        // Test application schema
-        const appSchemaResult = await client.query(
-            "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'app'",
-        );
-        console.log(`   ✅ App schema exists: ${appSchemaResult.rows.length > 0 ? 'Yes' : 'No'}`);
-
-        // Test temporal schema
-        const temporalSchemaResult = await client.query(
-            "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'temporal'",
-        );
+        // Test database functionality
+        const dbResult = await client.query('SELECT current_database(), current_user');
         console.log(
-            `   ✅ Temporal schema exists: ${temporalSchemaResult.rows.length > 0 ? 'Yes' : 'No'}`,
+            `   ✅ Connected to database: ${dbResult.rows[0].current_database} as ${dbResult.rows[0].current_user}`,
         );
 
         // Test a simple query

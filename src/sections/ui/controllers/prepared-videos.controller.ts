@@ -3,6 +3,7 @@ import {
     deletePreparedVideo,
     findPreparedVideoDuplicates,
     getAllPreparedVideos,
+    getOnePreparedVideo,
     getPreparedVideoById,
     getPreparedVideosStatisticsByDays,
     hasPreparedVideoBeenCreated,
@@ -15,6 +16,7 @@ import {
     DeletePreparedVideoParamsSchema,
     FindPreparedVideoDuplicatesParamsSchema,
     GetAllPreparedVideosParamsSchema,
+    GetOnePreparedVideoParamsSchema,
     GetPreparedVideoByIdParamsSchema,
     HasPreparedVideoBeenCreatedParamsSchema,
     PreparedVideosStatisticsParamsSchema,
@@ -29,6 +31,8 @@ import {
     FindPreparedVideoDuplicatesResponse,
     GetAllPreparedVideosParams,
     GetAllPreparedVideosResponse,
+    GetOnePreparedVideoParams,
+    GetOnePreparedVideoResponse,
     GetPreparedVideoByIdParams,
     GetPreparedVideoByIdResponse,
     HasPreparedVideoBeenCreatedParams,
@@ -78,3 +82,8 @@ export const hasPreparedVideoBeenCreatedGet = wrapper<
     HasPreparedVideoBeenCreatedParams,
     HasPreparedVideoBeenCreatedResponse
 >(hasPreparedVideoBeenCreated, HasPreparedVideoBeenCreatedParamsSchema, 'GET');
+
+export const getOnePreparedVideoGet = wrapper<
+    GetOnePreparedVideoParams,
+    GetOnePreparedVideoResponse
+>(getOnePreparedVideo, GetOnePreparedVideoParamsSchema, 'GET');

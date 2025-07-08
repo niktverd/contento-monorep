@@ -104,6 +104,8 @@ jobs:
           scp -r scripts/ ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
           scp .env.production ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
           scp Makefile ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
+          # Copy updated knexfile.js to fix database connection issues
+          scp knexfile.js ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
 
       - name: Login to container registry on server
         run: |
@@ -114,14 +116,17 @@ jobs:
       - name: Deploy application
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          APP_POSTGRES_PASSWORD: ${{ secrets.APP_POSTGRES_PASSWORD }}
           TEMPORAL_UI_PASSWORD: ${{ secrets.TEMPORAL_UI_PASSWORD }}
           APP_ID: ${{ secrets.APP_ID }}
           API_SECRET: ${{ secrets.API_SECRET }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKER_IMAGE: ${{ format('{0}/{1}:main', env.REGISTRY, env.IMAGE_NAME) }}
+          ALLOWED_SENDER_ID: ${{ secrets.ALLOWED_SENDER_ID }}
+          DOCKER_IMAGE: ${{ format('{0}/{1}@{2}', env.REGISTRY, env.IMAGE_NAME, needs.build-and-push.outputs.image-digest) }}
           DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
+          APP_DATABASE_URL: postgresql://app_user:${{ secrets.APP_POSTGRES_PASSWORD }}@postgresql:5432/app_db
         run: |
           # Create secure deployment script with environment variables
           cat > deploy_script.sh << 'DEPLOY_EOF'
@@ -132,10 +137,12 @@ jobs:
 
           # Export all required environment variables
           export POSTGRES_PASSWORD="${POSTGRES_PASSWORD}"
+          export APP_POSTGRES_PASSWORD="${APP_POSTGRES_PASSWORD}"
           export TEMPORAL_UI_PASSWORD="${TEMPORAL_UI_PASSWORD}" 
           export APP_ID="${APP_ID}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
+          export ALLOWED_SENDER_ID="${ALLOWED_SENDER_ID}"
           export HETZNER_SERVER_DOMAIN="${HETZNER_SERVER_DOMAIN}"
           export HETZNER_SERVER_HOST="${HETZNER_SERVER_HOST}"
 
@@ -175,8 +182,12 @@ jobs:
             exit 1
           fi
 
-          # Construct DATABASE_URL with password
+          # Construct DATABASE_URLs with passwords
           export DATABASE_URL="postgresql://temporal:${POSTGRES_PASSWORD}@postgresql:5432/temporal"
+          export APP_DATABASE_URL="postgresql://app_user:${APP_POSTGRES_PASSWORD}@postgresql:5432/app_db"
+
+          # Note: All databases are now created by CI/CD logic below
+          # This ensures they exist regardless of volume state
 
           # Docker Compose operations with environment variables
           echo "🚀 Pulling latest images..."
@@ -191,6 +202,48 @@ jobs:
           echo "⏳ Waiting for PostgreSQL to be ready..."
           timeout 120 bash -c 'until docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql pg_isready -U temporal; do sleep 2; done'
 
+          echo "🔧 Ensuring all databases and users exist..."
+
+          # Check if temporal database exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'temporal'" | grep -q 1 || {
+            echo "Creating temporal database..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal temporal
+          }
+
+          # Check if temporal_visibility database exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'temporal_visibility'" | grep -q 1 || {
+            echo "Creating temporal_visibility database..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal temporal_visibility
+          }
+
+          # Check if app_user exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_user WHERE usename = 'app_user'" | grep -q 1 || {
+            echo "Creating app_user..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "CREATE USER app_user WITH PASSWORD '${APP_POSTGRES_PASSWORD}';"
+          }
+
+          # Check if app_db exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'app_db'" | grep -q 1 || {
+            echo "Creating app_db..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal -O app_user app_db
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT ALL PRIVILEGES ON DATABASE app_db TO app_user;"
+          }
+
+          echo "🔒 Enforcing database isolation (removing app_user access to Temporal databases)..."
+          # Remove inherited CONNECT privilege from PUBLIC role for Temporal databases
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal FROM PUBLIC;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal_visibility FROM PUBLIC;"
+
+          # Explicitly deny app_user access to Temporal databases
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal_visibility FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE ALL ON DATABASE temporal FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE ALL ON DATABASE temporal_visibility FROM app_user;"
+
+          # Restore access for temporal user (superuser already has access, but explicit for clarity)
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT CONNECT ON DATABASE temporal TO temporal;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT CONNECT ON DATABASE temporal_visibility TO temporal;"
+
           echo "🚀 Starting Temporal Server..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d temporal temporal-ui
 
@@ -198,7 +251,10 @@ jobs:
           sleep 30
 
           echo "🚀 Starting Application and Workers..."
-          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker
+          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker publishing-init-worker publishing-exec-worker
+
+          echo "🔧 Running database migrations..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app npm run migrate
 
           echo "🚀 Initializing SSL certificates..."
           # Ensure /etc/letsencrypt/live and /etc/letsencrypt/archive exist in the volume before Certbot runs
@@ -220,14 +276,17 @@ jobs:
           # Execute the script on the server with environment variables securely passed
           ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} 'bash -s' <<EOF
           export POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
+          export APP_POSTGRES_PASSWORD='${APP_POSTGRES_PASSWORD}'
           export TEMPORAL_UI_PASSWORD='${TEMPORAL_UI_PASSWORD}'
           export APP_ID='${APP_ID}'
           export API_SECRET='${API_SECRET}'
           export GOOGLE_APPLICATION_CREDENTIALS='${GOOGLE_APPLICATION_CREDENTIALS}'
           export FIREBASE_CONFIG='${FIREBASE_CONFIG}'
           export GCP_PROJECT_ID='${GCP_PROJECT_ID}'
+          export ALLOWED_SENDER_ID='${ALLOWED_SENDER_ID}'
           export DOCKER_IMAGE='${DOCKER_IMAGE}'
           export DATABASE_URL='${DATABASE_URL}'
+          export APP_DATABASE_URL='${APP_DATABASE_URL}'
           export HETZNER_SERVER_HOST='${{ secrets.HETZNER_SERVER_HOST }}'
           export HETZNER_SERVER_DOMAIN='${{ secrets.HETZNER_SERVER_DOMAIN }}'
           bash /tmp/deploy_script.sh
@@ -277,12 +336,71 @@ jobs:
             fi
           '
 
+      - name: Collect deployment artifacts
+        if: always()
+        run: |
+          # Create local artifacts directory
+          mkdir -p deployment-artifacts
+
+          # Collect deployment logs and health check results from server
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            cd /opt/instagram-video-downloader
+            
+            # Create artifacts directory on server
+            mkdir -p /tmp/deployment-artifacts
+            
+            # Collect docker-compose logs
+            echo "📋 Collecting docker-compose logs..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production logs --timestamps > /tmp/deployment-artifacts/docker-compose.log 2>&1 || echo "Failed to collect docker-compose logs"
+            
+            # Collect container status
+            echo "📋 Collecting container status..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production ps > /tmp/deployment-artifacts/container-status.txt 2>&1 || echo "Failed to collect container status"
+            
+            # Collect health check results if script exists
+            if [ -f scripts/health-check.sh ]; then
+              echo "📋 Running health check for artifacts..."
+              ./scripts/health-check.sh > /tmp/deployment-artifacts/health-check.log 2>&1 || echo "Health check failed or not found"
+            fi
+            
+            # Collect system info
+            echo "📋 Collecting system information..."
+            {
+              echo "=== System Info ==="
+              date
+              echo "=== Docker Version ==="
+              docker --version
+              echo "=== Docker Compose Version ==="
+              docker-compose --version
+              echo "=== Available Images ==="
+              docker images | grep instagram-video-downloader
+              echo "=== Disk Usage ==="
+              df -h
+              echo "=== Memory Usage ==="
+              free -h
+            } > /tmp/deployment-artifacts/system-info.txt 2>&1
+          '
+
+          # Download artifacts from server
+          scp -r ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/tmp/deployment-artifacts/* ./deployment-artifacts/ || echo "Failed to download some artifacts"
+
+      - name: Upload deployment artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs-${{ github.sha }}
+          path: deployment-artifacts/
+          retention-days: 30
+
       - name: Cleanup old images
         run: |
           ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
             # Remove unused Docker images to save space
             docker image prune -f --filter "until=24h"
             docker system prune -f --volumes
+            
+            # Clean up temporary artifacts directory
+            rm -rf /tmp/deployment-artifacts
           '
 
       - name: Display deployment summary

@@ -52,7 +52,7 @@ export async function downloadVideo(
     const duration = await getVideoDuration(downloadURL);
     Context.current().heartbeat('Duration of video is gained.');
 
-    await fetchPatch({
+    const updatedSource = await fetchPatch({
         route: FetchRoutes.updateOneSource,
         body: {
             id: sourceId,
@@ -63,6 +63,6 @@ export async function downloadVideo(
 
     return {
         success: true,
-        source,
+        source: updatedSource,
     };
 }

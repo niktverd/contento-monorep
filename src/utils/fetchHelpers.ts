@@ -22,7 +22,7 @@ const prepareFetchUrl = (
     const searchParams = objectToSearchParams(query);
     console.log('prepareFetchUrl', 'process.env', process.env);
 
-    const url = `${API_ENDPOINT}/api${route}?${searchParams} `;
+    const url = `${API_ENDPOINT}/api${route}?${searchParams}`;
     // eslint-disable-next-line no-console
     log(url);
 
@@ -35,12 +35,20 @@ type FetchGet = {
 };
 
 export const fetchGet = async <T>({route, query = {}}: FetchGet) => {
-    const response = await fetch(prepareFetchUrl(route, query), {
+    const url = prepareFetchUrl(route, query);
+    const response = await fetch(url, {
         headers: defaultHeaders,
         method: Method.Get,
     });
-    const json = await response.json();
 
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+            `HTTP ${response.status} ${response.statusText}: ${errorText} (URL: ${url})`,
+        );
+    }
+
+    const json = await response.json();
     return json as T;
 };
 
@@ -51,24 +59,40 @@ type FetchPost = {
 };
 
 export const fetchPost = async ({route, query = {}, body = {}}: FetchPost) => {
-    const response = await fetch(prepareFetchUrl(route, query), {
+    const url = prepareFetchUrl(route, query);
+    const response = await fetch(url, {
         headers: defaultHeaders,
         method: Method.Post,
         body: JSON.stringify(body),
     });
-    const json = await response.json();
 
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+            `HTTP ${response.status} ${response.statusText}: ${errorText} (URL: ${url})`,
+        );
+    }
+
+    const json = await response.json();
     return json;
 };
 
 export const fetchPatch = async ({route, query = {}, body = {}}: FetchPost) => {
-    const response = await fetch(prepareFetchUrl(route, query), {
+    const url = prepareFetchUrl(route, query);
+    const response = await fetch(url, {
         headers: defaultHeaders,
         method: Method.Patch,
         body: JSON.stringify(body),
     });
-    const json = await response.json();
 
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+            `HTTP ${response.status} ${response.statusText}: ${errorText} (URL: ${url})`,
+        );
+    }
+
+    const json = await response.json();
     return json;
 };
 
@@ -80,12 +104,20 @@ type FetchDelete = {
 };
 
 export const fetchDelete = async ({route, query = {}, body = {}}: FetchDelete) => {
-    const response = await fetch(prepareFetchUrl(route, query), {
+    const url = prepareFetchUrl(route, query);
+    const response = await fetch(url, {
         headers: defaultHeaders,
         method: Method.Delete,
         body: JSON.stringify(body),
     });
-    const json = await response.json();
 
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+            `HTTP ${response.status} ${response.statusText}: ${errorText} (URL: ${url})`,
+        );
+    }
+
+    const json = await response.json();
     return json;
 };

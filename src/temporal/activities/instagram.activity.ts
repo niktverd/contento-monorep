@@ -6,7 +6,7 @@ import {
     createInstagramPostContainer,
     publishInstagramPostContainer,
 } from '#src/sections/instagram/components/instagram';
-import {InstagramLocationSource} from '#src/types';
+import {IPreparedVideo, InstagramLocationSource} from '#src/types';
 import {IAccount} from '#src/types/account';
 import {IScenario} from '#src/types/scenario';
 import {
@@ -16,8 +16,8 @@ import {
     PublishInstagramPostResult,
 } from '#src/types/temporal';
 import {FetchRoutes, delay, getRandomElementOfArray, prepareCaption} from '#src/utils';
-import {ThrownError} from '#src/utils/error';
-import {fetchGet} from '#src/utils/fetchHelpers';
+import {NotRetryableError, ThrownError} from '#src/utils/error';
+import {fetchGet, fetchPatch, fetchPost} from '#src/utils/fetchHelpers';
 import {log} from '#src/utils/logging';
 
 // eslint-disable-next-line valid-jsdoc
@@ -28,11 +28,17 @@ import {log} from '#src/utils/logging';
 export async function createInstagramContainer(
     input: CreateInstagramContainerInput,
 ): Promise<CreateInstagramContainerResult> {
-    const {processedVideoUrl, accountId, scenarioId, sourceId} = input;
+    const {preparedVideo} = input;
+
+    if (!preparedVideo) {
+        throw new NotRetryableError('Prepared video is required', 400);
+    }
+
+    const {firebaseUrl, accountId, scenarioId, sourceId} = preparedVideo;
 
     try {
         log('Starting createInstagramContainer activity', {
-            processedVideoUrl,
+            firebaseUrl,
             accountId,
             scenarioId,
             sourceId,
@@ -87,7 +93,7 @@ export async function createInstagramContainer(
         log('Prepared Instagram post data', {
             caption: caption?.substring(0, 100) + '...',
             locationId,
-            videoUrl: processedVideoUrl,
+            firebaseUrl,
         });
 
         Context.current().heartbeat('Creating Instagram media container');
@@ -95,7 +101,7 @@ export async function createInstagramContainer(
         // Create Instagram media container via Graph API
         const result = await createInstagramPostContainer({
             caption,
-            videoUrl: processedVideoUrl,
+            videoUrl: firebaseUrl,
             locationId,
             accessToken: account.token,
         });
@@ -111,15 +117,25 @@ export async function createInstagramContainer(
             mediaContainerId: result.mediaContainerId,
         });
 
-        Context.current().heartbeat('Saving container to database');
+        Context.current().heartbeat('Persisting container info to database');
 
-        // Save container to database
-        // Note: We would need to pass a database connection here
-        // For now, we'll return the success status
-        // In a real implementation, this would be handled by the Worker's database connection
+        // Persist container data to database
+        const savedContainer = await fetchPost({
+            route: FetchRoutes.createInstagramMediaContainer,
+            body: {
+                accountId: account.id,
+                preparedVideoId: preparedVideo.id,
+                containerId: result.mediaContainerId,
+                caption,
+                location: randomLocation,
+            },
+        });
+
+        const instagramMediaContainerId = savedContainer?.result?.id ?? savedContainer?.id;
 
         log('Container creation completed', {
             mediaContainerId: result.mediaContainerId,
+            instagramMediaContainerId,
             accountId,
             scenarioId,
             sourceId,
@@ -129,6 +145,7 @@ export async function createInstagramContainer(
             success: true,
             mediaContainerId: result.mediaContainerId,
             creationId: result.mediaContainerId, // Same as container ID for Instagram
+            instagramMediaContainerId,
         };
     } catch (error) {
         log('Error in createInstagramContainer activity', {
@@ -160,29 +177,26 @@ export async function createInstagramContainer(
 export async function publishInstagramPost(
     input: PublishInstagramPostInput,
 ): Promise<PublishInstagramPostResult> {
-    const {mediaContainerId, accountId, creationId} = input;
-    const containerId = creationId || mediaContainerId;
+    const {mediaContainerId, account, instagramMediaContainerId} = input;
 
     try {
         log('Starting publishInstagramPost activity', {
-            containerId,
-            accountId,
+            mediaContainerId,
+            account,
         });
 
         Context.current().heartbeat('Fetching account data');
 
-        // Fetch account for access token
-        const account = await fetchGet<IAccount>({
-            route: FetchRoutes.getAccountById,
-            query: {id: accountId},
-        });
+        if (!mediaContainerId) {
+            throw new ThrownError(`mediaContainerId is required`, 404);
+        }
 
         if (!account) {
-            throw new ThrownError(`Account with id ${accountId} not found`, 404);
+            throw new ThrownError(`Account not found`, 404);
         }
 
         if (!account.token) {
-            throw new ThrownError(`Account with id ${accountId} has no access token`, 400);
+            throw new ThrownError(`Account with id ${account.id} has no access token`, 400);
         }
 
         log('Account fetched successfully', {accountId: account.id});
@@ -200,7 +214,7 @@ export async function publishInstagramPost(
             Context.current().heartbeat(`Checking readiness: attempt ${attempt}/${maxRetries}`);
 
             isReady = await canInstagramPostBePublished({
-                mediaContainerId: containerId,
+                mediaContainerId,
                 accessToken: account.token,
             });
 
@@ -221,7 +235,7 @@ export async function publishInstagramPost(
 
         if (!isReady) {
             throw new ThrownError(
-                `Container ${containerId} was not ready after ${maxRetries} attempts`,
+                `Container ${mediaContainerId} was not ready after ${maxRetries} attempts`,
                 408,
             );
         }
@@ -230,7 +244,7 @@ export async function publishInstagramPost(
 
         // Publish the container
         const publishResponse = await publishInstagramPostContainer({
-            containerId,
+            containerId: mediaContainerId,
             accessToken: account.token,
         });
 
@@ -243,8 +257,29 @@ export async function publishInstagramPost(
 
         log('Instagram post published successfully', {
             postId: publishResponse.postId,
-            containerId,
+            mediaContainerId,
+            instagramMediaContainerId,
         });
+
+        // Update DB record to mark as published
+        if (instagramMediaContainerId) {
+            try {
+                await fetchPatch({
+                    route: FetchRoutes.updateInstagramMediaContainer,
+                    body: {
+                        id: instagramMediaContainerId,
+                        mediaId: publishResponse.postId,
+                        isPublished: true,
+                        lastCheckedIGStatus: 'FINISHED',
+                    },
+                });
+            } catch (dbUpdateError) {
+                log('Failed to update instagram media container record', {
+                    error: dbUpdateError,
+                    instagramMediaContainerId,
+                });
+            }
+        }
 
         return {
             success: true,
@@ -253,8 +288,8 @@ export async function publishInstagramPost(
     } catch (error) {
         log('Error in publishInstagramPost activity', {
             error,
-            containerId,
-            accountId,
+            mediaContainerId,
+            accountId: account?.id,
         });
 
         if (error instanceof ThrownError) {
@@ -270,3 +305,10 @@ export async function publishInstagramPost(
         };
     }
 }
+
+export const getRandomPreparedVideForAccountActivity = async (accountId: number) => {
+    return await fetchGet<IPreparedVideo>({
+        route: FetchRoutes.getOnePreparedVideo,
+        query: {accountId, random: true},
+    });
+};

@@ -1,17 +1,14 @@
-import * as path from 'path';
-
 import {Request, Response} from 'express';
-import {Knex, knex} from 'knex';
-import {Model, TransactionOrKnex} from 'objection';
+import {Knex} from 'knex';
+import {TransactionOrKnex} from 'objection';
 import {z} from 'zod';
 
+import knexInstance from '#src/config/database';
 import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
-import {logError} from '#utils';
+import {logDatabaseConnected, logDatabaseSchemaVersion, logError} from '#utils';
 
-// Import configuration based on environment
-const environment = process.env.APP_ENV || 'development';
-export const dbConfig = require(path.join(__dirname, '../../knexfile'))[environment];
+const db: Knex = knexInstance;
 
 const fakeDb = new Proxy(
     {},
@@ -26,12 +23,54 @@ export const getDb = () => {
     if (process.env.APP_ENV === 'cloud-run') {
         return fakeDb as TransactionOrKnex;
     }
-    const db: Knex = knex(dbConfig);
-    Model.knex(db);
     return db;
 };
 
-export const db = getDb();
+// eslint-disable-next-line valid-jsdoc
+/**
+ * Initialize database connection with logging and schema version check
+ */
+export const initializeDb = async (): Promise<Knex> => {
+    if (process.env.APP_ENV === 'cloud-run') {
+        return db;
+    }
+
+    try {
+        // Test the connection and get schema version
+        const connectionOptions = db.client.config.connection as Knex.ConnectionConfig & {
+            host: string;
+            port: number;
+            database: string;
+        };
+
+        // Check if migrations table exists and get latest migration
+        const migrationsExist = await db.schema.hasTable('knex_migrations');
+        let latestMigration = 'No migrations applied';
+
+        if (migrationsExist) {
+            const result = await db('knex_migrations')
+                .select('name')
+                .orderBy('batch', 'desc')
+                .orderBy('id', 'desc')
+                .first();
+            latestMigration = result?.name || 'No migrations found';
+        }
+
+        // Log successful connection
+        const {host = 'localhost', port = 5432, database = 'unknown'} = connectionOptions;
+        logDatabaseConnected(`postgresql://${host}:${port}/${database}`, database);
+
+        // Log schema version
+        logDatabaseSchemaVersion(latestMigration);
+
+        return db;
+    } catch (error) {
+        logError('Failed to initialize database connection:', error);
+        throw error;
+    }
+};
+
+export {db};
 
 // REST HTTP method type
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -68,7 +107,7 @@ export const wrapper = <RequestArgs, ResponseArgs>(
 
                 const validatedData = validator.parse(dataToValidate) as RequestArgs;
 
-                const {code = 200, result} = await fn(validatedData, db);
+                const {code = 200, result} = await fn(validatedData, getDb());
                 res.status(code).json(result);
             } catch (validationError) {
                 if (validationError instanceof z.ZodError) {

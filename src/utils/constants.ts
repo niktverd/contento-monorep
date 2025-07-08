@@ -96,6 +96,8 @@ export enum FetchRoutes {
     getAllInstagramMediaContainers = '/ui/get-all-instagram-media-containers',
     getInstagramMediaContainerById = '/ui/get-instagram-media-container-by-id',
     getInstagramMediaContainersStatisticsByDays = '/ui/get-instagram-media-containers-statistics-by-days',
+    createInstagramMediaContainer = '/ui/create-instagram-media-container',
+    updateInstagramMediaContainer = '/ui/update-instagram-media-container',
 
     // instagram locations
     getAllInstagramLocations = '/ui/get-all-instagram-locations',
@@ -111,4 +113,7 @@ export enum FetchRoutes {
     createCloudRunScenarioExecution = '/ui/create-cloud-run-scenario-execution',
     getAllCloudRunScenarioExecution = '/ui/get-cloud-run-scenario-execution',
     updateCloudRunScenarioExecutionStatus = '/ui/update-cloud-run-scenario-execution',
+
+    // prepared videos for account
+    getOnePreparedVideo = '/ui/get-one-prepared-video',
 }

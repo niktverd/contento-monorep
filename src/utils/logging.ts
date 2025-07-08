@@ -72,3 +72,73 @@ export const logError = (...messages: unknown[]) => {
         console.error(JSON.stringify([`reqId_${reqId}`, ...messages, ...groupLabels]));
     }
 };
+
+// eslint-disable-next-line valid-jsdoc
+/**
+ * Log database connection information
+ */
+export const logDatabaseConnection = (dbUrl: string, dbName?: string) => {
+    const isDevelopment = process.env.APP_ENV === 'development';
+
+    // Extract database name and host from URL for logging (without credentials)
+    let parsedInfo = 'Unknown database';
+    try {
+        const url = new URL(dbUrl);
+        const host = url.hostname;
+        const port = url.port || '5432';
+        const database = url.pathname.slice(1); // Remove leading slash
+        parsedInfo = `${database}@${host}:${port}`;
+    } catch {
+        if (dbName) {
+            parsedInfo = dbName;
+        }
+    }
+
+    if (isDevelopment) {
+        console.log(chalk.green(`[INFO] Connecting to application database: ${parsedInfo}`));
+    } else {
+        console.log(JSON.stringify(['[INFO] Connecting to application database:', parsedInfo]));
+    }
+};
+
+// eslint-disable-next-line valid-jsdoc
+/**
+ * Log successful database connection
+ */
+export const logDatabaseConnected = (dbUrl: string, dbName?: string) => {
+    const isDevelopment = process.env.APP_ENV === 'development';
+
+    // Extract database and host info from URL for logging (format: database@host:port)
+    let parsedInfo = 'Unknown database';
+    try {
+        const url = new URL(dbUrl);
+        const host = url.hostname;
+        const port = url.port || '5432';
+        const database = url.pathname.slice(1); // Remove leading slash
+        parsedInfo = `${database}@${host}:${port}`;
+    } catch {
+        if (dbName) {
+            parsedInfo = dbName;
+        }
+    }
+
+    if (isDevelopment) {
+        console.log(chalk.green(`[INFO] Connected to ${parsedInfo}`));
+    } else {
+        console.log(JSON.stringify(['[INFO] Connected to', parsedInfo]));
+    }
+};
+
+// eslint-disable-next-line valid-jsdoc
+/**
+ * Log database schema version after successful connection
+ */
+export const logDatabaseSchemaVersion = (version: string) => {
+    const isDevelopment = process.env.APP_ENV === 'development';
+
+    if (isDevelopment) {
+        console.log(chalk.blue(`[INFO] Database schema version: ${version}`));
+    } else {
+        console.log(JSON.stringify(['[INFO] Database schema version:', version]));
+    }
+};

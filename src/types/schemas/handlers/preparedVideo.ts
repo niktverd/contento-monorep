@@ -39,17 +39,17 @@ export const DeletePreparedVideoParamsSchema = z
 
 export const GetOnePreparedVideoParamsSchema = z
     .object({
-        hasFirebaseUrl: z.boolean().optional(),
+        hasFirebaseUrl: zodOptionalBoolean(),
         firebaseUrl: z.string().optional(),
-        duration: z.number().optional(),
-        scenarioId: z.number().optional(),
-        sourceId: z.number().optional(),
-        accountId: z.number().optional(),
-        random: z.boolean().optional(),
-        notInInstagramMediaContainers: z.boolean().optional(),
-        fetchGraphAccount: z.boolean().optional(),
-        fetchGraphScenario: z.boolean().optional(),
-        fetchGraphSource: z.boolean().optional(),
+        duration: zodOptionalNumber(),
+        scenarioId: zodOptionalNumber(),
+        sourceId: zodOptionalNumber(),
+        accountId: zodOptionalNumber(),
+        random: zodOptionalBoolean(),
+        notInInstagramMediaContainers: zodOptionalBoolean(),
+        fetchGraphAccount: zodOptionalBoolean(),
+        fetchGraphScenario: zodOptionalBoolean(),
+        fetchGraphSource: zodOptionalBoolean(),
     })
     .strict();
 

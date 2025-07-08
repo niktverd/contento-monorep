@@ -1,14 +1,10 @@
 // eslint-disable-next-line import/order, import/no-extraneous-dependencies
 import 'module-alias/register';
 
-import {Worker} from '@temporalio/worker';
+import {NativeConnection, Worker} from '@temporalio/worker';
 import dotenv from 'dotenv';
 
-import {
-    downloadVideo,
-    getAccountsActivity,
-    runProcessingActivity,
-} from '../src/temporal/activities';
+import {processVideo} from '../src/temporal/activities';
 
 dotenv.config();
 
@@ -60,13 +56,20 @@ async function createWorkerWithRetry(): Promise<Worker> {
                 `🔄 Attempt ${attempt}/${MAX_RETRIES}: Creating Temporal processing worker...`,
             );
 
+            const connection = await NativeConnection.connect({
+                address: process.env.TEMPORAL_ADDRESS || 'temporal:7233',
+            });
+
             const worker = await Worker.create({
-                taskQueue: 'video-processing',
+                connection,
+                namespace: process.env.TEMPORAL_NAMESPACE || 'default',
+                taskQueue: process.env.PROCESSING_WORKER_TASK_QUEUE || 'video-processing',
                 workflowsPath: require.resolve('../src/temporal/workflows'),
                 activities: {
-                    downloadVideo,
-                    getAccountsActivity,
-                    runProcessingActivity,
+                    // downloadVideo,
+                    // getAccountsActivity,
+                    // runProcessingActivity,
+                    processVideo,
                 },
                 maxConcurrentActivityTaskExecutions: 10,
                 maxConcurrentWorkflowTaskExecutions: 15,

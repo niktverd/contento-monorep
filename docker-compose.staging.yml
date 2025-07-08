@@ -18,10 +18,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          # cpus: '1'
           memory: 4G
         reservations:
-          cpus: '0.5'
+          # cpus: '0.5'
           memory: 2G
     healthcheck:
       test:
@@ -64,10 +64,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          # cpus: '1'
           memory: 4G
         reservations:
-          cpus: '0.5'
+          # cpus: '0.5'
           memory: 2G
     healthcheck:
       test: ['CMD', 'tctl', '--address', 'temporal:7233', 'cluster', 'health']
@@ -95,10 +95,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
+          # cpus: '0.25'
           memory: 256M
         reservations:
-          cpus: '0.1'
+          # cpus: '0.1'
           memory: 128M
     healthcheck:
       test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
@@ -131,14 +131,15 @@ services:
       - HEALTH_CHECK_PORT=${HEALTH_CHECK_PORT:-8080}
       - METRICS_ENABLED=${METRICS_ENABLED:-true}
       - METRICS_PORT=${METRICS_PORT:-9090}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://localhost:8080}
     # Reduced resources for staging
     deploy:
       resources:
         limits:
-          cpus: '1'
+          # cpus: '1'
           memory: 4G
         reservations:
-          cpus: '0.5'
+          # cpus: '0.5'
           memory: 2G
     healthcheck:
       test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
@@ -173,14 +174,15 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-debug}
       - LOG_FORMAT=${LOG_FORMAT:-json}
       - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
     # Reduced resources for staging
     deploy:
       resources:
         limits:
-          cpus: '1'
+          # cpus: '1'
           memory: 8G
         reservations:
-          cpus: '0.5'
+          # cpus: '0.5'
           memory: 4G
     command: ['node', 'dist/scripts/start-downloading-worker.js']
     healthcheck:
@@ -221,14 +223,15 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-debug}
       - LOG_FORMAT=${LOG_FORMAT:-json}
       - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
     # Reduced resources for staging
     deploy:
       resources:
         limits:
-          cpus: '1'
+          # cpus: '1'
           memory: 8G
         reservations:
-          cpus: '0.5'
+          # cpus: '0.5'
           memory: 4G
     command: ['node', 'dist/scripts/start-processing-worker.js']
     healthcheck:
@@ -249,6 +252,55 @@ services:
         aliases:
           - processing-worker
 
+  publishing-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: publishing-worker-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=staging
+      - WORKER_TYPE=publishing
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PUBLISHING_WORKER_CONCURRENCY=${PUBLISHING_WORKER_CONCURRENCY:-1}
+      - PUBLISHING_WORKER_MAX_WORKFLOWS=${PUBLISHING_WORKER_MAX_WORKFLOWS:-1}
+      - PUBLISHING_WORKER_TASK_QUEUE=${PUBLISHING_WORKER_TASK_QUEUE:-video-publishing}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+    # Reduced resources for staging (minimal for single long-lived workflow)
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.5'
+          memory: 2G
+        reservations:
+          # cpus: '0.25'
+          memory: 1G
+    command: ['node', 'dist/scripts/start-publishing-worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - publishing-worker
+
   # Simple HTTP server for staging (no SSL, no auth)
   nginx:
     image: nginx:1.25-alpine
@@ -265,10 +317,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
+          # cpus: '0.25'
           memory: 256M
         reservations:
-          cpus: '0.1'
+          # cpus: '0.1'
           memory: 128M
     healthcheck:
       test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:80/health']

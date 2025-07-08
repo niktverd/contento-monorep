@@ -31,6 +31,9 @@ COPY knexfile.js ./
 # Build TypeScript application
 RUN npm run build
 
+# Copy knexfile.js to dist/server/ for runtime access by compiled code
+RUN cp knexfile.js dist/server/
+
 # Copy compiled worker scripts to expected path for runtime compatibility
 RUN mkdir -p dist/scripts \
     && cp -r dist/server/scripts/* dist/scripts/ \

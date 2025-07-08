@@ -47,6 +47,10 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+log_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
+}
+
 # Help function
 show_help() {
     echo "SSL Certificate Initialization"
@@ -117,6 +121,101 @@ validate_email() {
     fi
     
     return 0
+}
+
+# Check certificate expiry using openssl
+check_certificate_expiry() {
+    local domain="$1"
+    local threshold_days="${2:-30}"
+    
+    log_debug "Checking certificate expiry for domain: $domain (threshold: $threshold_days days)"
+    
+    local cert_check_result=$(docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "
+            apk add --no-cache openssl >/dev/null 2>&1
+            
+            cert_file=\"/etc/letsencrypt/live/$domain/fullchain.pem\"
+            
+            if [ ! -f \"\$cert_file\" ]; then
+                echo 'CERT_NOT_FOUND'
+                exit 0
+            fi
+            
+            # Check if certificate will expire within threshold_days
+            threshold_seconds=\$((${threshold_days} * 86400))
+            
+            echo \"DEBUG: Checking if cert expires within \$threshold_seconds seconds (\${threshold_days} days)\" >&2
+            
+            if openssl x509 -checkend \"\$threshold_seconds\" -noout -in \"\$cert_file\" >/dev/null 2>&1; then
+                echo \"DEBUG: Certificate is valid for more than \${threshold_days} days\" >&2
+                # Get actual expiry info for logging
+                expiry_date=\$(openssl x509 -enddate -noout -in \"\$cert_file\" | cut -d= -f2)
+                echo \"DEBUG: Certificate expires on: \$expiry_date\" >&2
+                
+                # Calculate days until expiry using date -u (UTC)
+                if command -v date >/dev/null 2>&1; then
+                    current_epoch=\$(date -u +%s)
+                    # Try GNU date first, fallback to busybox compatible parsing
+                    expiry_epoch=\$(date -u -d \"\$expiry_date\" +%s 2>/dev/null || echo '0')
+                    if [ \"\$expiry_epoch\" != '0' ] && [ \"\$expiry_epoch\" -gt \"\$current_epoch\" ]; then
+                        days_left=\$(( (\$expiry_epoch - \$current_epoch) / 86400 ))
+                        echo \"DEBUG: Days until expiry: \$days_left\" >&2
+                        echo \"CERT_VALID:\$days_left\"
+                    else
+                        echo \"DEBUG: Could not parse expiry date with date command\" >&2
+                        echo 'CERT_VALID:UNKNOWN_DAYS'
+                    fi
+                else
+                    echo \"DEBUG: date command not available\" >&2
+                    echo 'CERT_VALID:UNKNOWN_DAYS'
+                fi
+            else
+                echo \"DEBUG: Certificate expires within \${threshold_days} days or is invalid\" >&2
+                expiry_date=\$(openssl x509 -enddate -noout -in \"\$cert_file\" | cut -d= -f2 2>/dev/null || echo 'UNKNOWN')
+                echo \"DEBUG: Certificate expires on: \$expiry_date\" >&2
+                echo 'CERT_EXPIRED'
+            fi
+        " 2>&1)
+    
+    log_debug "Certificate check output: $cert_check_result"
+    
+    # Parse the result
+    local status=$(echo "$cert_check_result" | grep -E '^(CERT_NOT_FOUND|CERT_VALID|CERT_EXPIRED)' | tail -1)
+    local debug_lines=$(echo "$cert_check_result" | grep '^DEBUG:')
+    
+    # Log debug information
+    while IFS= read -r debug_line; do
+        if [[ -n "$debug_line" ]]; then
+            log_debug "${debug_line#DEBUG: }"
+        fi
+    done <<< "$debug_lines"
+    
+    case "$status" in
+        "CERT_NOT_FOUND")
+            log_info "No existing certificate found for $domain"
+            return 1  # Need new cert
+            ;;
+        "CERT_VALID:"*)
+            local days_left="${status#CERT_VALID:}"
+            if [[ "$days_left" == "UNKNOWN_DAYS" ]]; then
+                log_success "Certificate is valid for more than $threshold_days days (exact days unknown)"
+            else
+                log_success "Certificate is valid and expires in $days_left days"
+            fi
+            return 0  # Cert is valid
+            ;;
+        "CERT_EXPIRED")
+            log_warning "Certificate expires within $threshold_days days or is invalid"
+            return 1  # Need new cert
+            ;;
+        *)
+            log_warning "Could not determine certificate status, assuming renewal needed"
+            log_debug "Unexpected status: $status"
+            return 1  # Need new cert
+            ;;
+    esac
 }
 
 # Get domain and email interactively
@@ -243,21 +342,30 @@ obtain_ssl_certificates() {
     local domain="$1"
     local email="$2"
     
-    log_info "Obtaining SSL certificates from Let's Encrypt..."
+    log_info "Checking existing SSL certificates..."
     log_info "Domain: $domain"
     log_info "Email: $email"
     log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
     
-    # --- NEW: wipe dummy certs so certbot starts clean ---
+    # Use the new certificate expiry check function
+    if check_certificate_expiry "$domain" 30; then
+        log_info "Skipping certificate request to avoid rate limits"
+        return 0
+    fi
+    
+    log_info "Obtaining SSL certificates from Let's Encrypt..."
+    
+    # Remove existing certificates if they exist
+    log_debug "Removing any existing expired certificates..."
     docker run --rm \
-            -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
-            alpine:latest \
-            sh -c "rm -rf /etc/letsencrypt/live/$domain \
-                           /etc/letsencrypt/archive/$domain \
-                           /etc/letsencrypt/renewal/$domain.conf || true"
-    # -----------------------------------------------------
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "rm -rf /etc/letsencrypt/live/$domain \
+                       /etc/letsencrypt/archive/$domain \
+                       /etc/letsencrypt/renewal/$domain.conf || true"
 
     # Run certbot to obtain certificates
+    log_debug "Running certbot for domain: $domain"
     docker run --rm \
             -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
             -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
@@ -273,6 +381,9 @@ obtain_ssl_certificates() {
     
     if [[ $? -eq 0 ]]; then
         log_success "SSL certificates obtained successfully!"
+        # Verify the new certificate
+        log_debug "Verifying newly obtained certificate..."
+        check_certificate_expiry "$domain" 0  # Check if cert is valid (threshold 0 = just check if it exists and is valid)
     else
         log_error "Failed to obtain SSL certificates"
         return 1
@@ -303,15 +414,16 @@ update_nginx_config() {
 
 # Reload NGINX with new certificates
 reload_nginx() {
-    log_info "Reloading NGINX with new SSL certificates..."
+    log_info "Starting/reloading NGINX with SSL certificates..."
     
-    # Restart NGINX to pick up new certificates
-    docker-compose -f "$DOCKER_COMPOSE_FILE" restart nginx
+    # Use up -d to start or restart NGINX container
+    # This will create new container if it doesn't exist, or restart if it does
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
     
-    # Wait for restart
+    # Wait for startup
     sleep 5
     
-    log_success "NGINX reloaded successfully"
+    log_success "NGINX started/reloaded successfully"
 }
 
 # Start certificate renewal service
@@ -475,50 +587,68 @@ main() {
     # Set trap for cleanup
     trap cleanup EXIT
     
+    # Check if we need a new certificate using the improved function
+    local need_new_cert=true
+    
+    log_info ""
+    log_info "Checking existing certificates..."
+    
+    if check_certificate_expiry "$domain" 30; then
+        need_new_cert=false
+        log_info "Skipping certificate request to avoid rate limits"
+    else
+        log_info "Certificate renewal needed"
+    fi
+    
     # Execute initialization steps
     log_info ""
     log_info "Step 1: Updating NGINX configuration..."
     update_nginx_config "$domain"
 
-    log_info ""
-    log_info "Step 2: Creating dummy certificates..."
-    create_dummy_certificates "$domain"
-    
-    log_info ""
-    log_info "Step 3: Starting NGINX for ACME challenge..."
-    start_nginx_for_acme
-    
-    log_info ""
-    log_info "Step 4: Obtaining real SSL certificates..."
-    if obtain_ssl_certificates "$domain" "$email"; then
+    if [[ "$need_new_cert" == true ]]; then
         log_info ""
-        log_info "Step 5: Reloading NGINX..."
-        reload_nginx
+        log_info "Step 2: Creating dummy certificates..."
+        create_dummy_certificates "$domain"
         
         log_info ""
-        log_info "Step 6: Starting certificate renewal service..."
-        start_certificate_renewal
+        log_info "Step 3: Starting NGINX for ACME challenge..."
+        start_nginx_for_acme
         
         log_info ""
-        log_info "Step 7: Testing SSL certificates..."
-        test_ssl_certificates "$domain"
-        
-        echo ""
-        log_success "SSL certificate initialization completed successfully!"
-        log_info ""
-        log_info "Next steps:"
-        log_info "  1. Update your DNS to point $domain to this server"
-        log_info "  2. Test HTTPS access: https://$domain"
-        log_info "  3. Monitor certificate renewal logs: docker-compose logs certbot"
-        log_info ""
-        log_info "Certificate files location:"
-        log_info "  - Certificate: /etc/letsencrypt/live/$domain/fullchain.pem"
-        log_info "  - Private key: /etc/letsencrypt/live/$domain/privkey.pem"
-        log_info "  - Chain: /etc/letsencrypt/live/$domain/chain.pem"
+        log_info "Step 4: Obtaining real SSL certificates..."
+        if ! obtain_ssl_certificates "$domain" "$email"; then
+            log_error "Certificate initialization failed"
+            exit 1
+        fi
     else
-        log_error "Certificate initialization failed"
-        exit 1
+        log_info ""
+        log_info "Step 2-4: Skipping certificate request (using existing valid certificate)"
     fi
+    
+    log_info ""
+    log_info "Step 5: Reloading NGINX with SSL certificates..."
+    reload_nginx
+    
+    log_info ""
+    log_info "Step 6: Starting certificate renewal service..."
+    start_certificate_renewal
+    
+    log_info ""
+    log_info "Step 7: Testing SSL certificates..."
+    test_ssl_certificates "$domain"
+        
+    echo ""
+    log_success "SSL certificate initialization completed successfully!"
+    log_info ""
+    log_info "Next steps:"
+    log_info "  1. Update your DNS to point $domain to this server"
+    log_info "  2. Test HTTPS access: https://$domain"
+    log_info "  3. Monitor certificate renewal logs: docker-compose logs certbot"
+    log_info ""
+    log_info "Certificate files location:"
+    log_info "  - Certificate: /etc/letsencrypt/live/$domain/fullchain.pem"
+    log_info "  - Private key: /etc/letsencrypt/live/$domain/privkey.pem"
+    log_info "  - Chain: /etc/letsencrypt/live/$domain/chain.pem"
 }
 
 # Run main function with all arguments

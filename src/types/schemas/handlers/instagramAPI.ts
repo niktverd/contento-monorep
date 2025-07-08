@@ -43,6 +43,7 @@ export const UiGetInstagramUserIdByMediaIdParamsSchema = z.object({
 export const UiGetInstagramUserIdByMediaIdResponseSchema = z.any();
 
 export const UiGetUserContentParamsSchema = z.object({
+    id: z.number(),
     accountName: z.string().optional(),
     accessToken: z.string().optional(),
 });
