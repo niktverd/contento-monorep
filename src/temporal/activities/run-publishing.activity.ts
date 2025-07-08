@@ -13,7 +13,7 @@ export async function runPublishingActivity(
     input: RunPublishingActivityArgs,
 ): Promise<RunPublishingActivityResponse> {
     const client = await getTemporalClient();
-    const taskQueue = process.env.TEMPORAL_TASK_QUEUE || 'process-video-publishing';
+    const taskQueue = 'process-video-publishing';
 
     const {preparedVideo, account} = input as {
         preparedVideo: IPreparedVideo;

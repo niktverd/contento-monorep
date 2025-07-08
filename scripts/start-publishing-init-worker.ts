@@ -119,8 +119,8 @@ async function createWorkerWithRetry(): Promise<Worker> {
                     getAccountsActivity,
                     runPublishingActivity,
                 },
-                maxConcurrentActivityTaskExecutions: 1, // Single long-lived workflow
-                maxConcurrentWorkflowTaskExecutions: 1,
+                maxConcurrentActivityTaskExecutions: 20, // Single long-lived workflow
+                maxConcurrentWorkflowTaskExecutions: 20,
                 stickyQueueScheduleToStartTimeout: '5m',
             });
 
