@@ -36,9 +36,9 @@ export async function runProcessingActivity(
         args: [{account, scenario, source}],
         taskQueue,
         workflowId,
-        workflowExecutionTimeout: '30 minutes', // Total timeout for entire workflow
-        workflowRunTimeout: '10 minutes', // Timeout for single run
-        workflowTaskTimeout: '10 minute', // Timeout for workflow decisions
+        workflowExecutionTimeout: '60 minutes', // Total timeout for entire workflow
+        workflowRunTimeout: '30 minutes', // Timeout for single run
+        workflowTaskTimeout: '20 minute', // Timeout for workflow decisions
     });
 
     return {
