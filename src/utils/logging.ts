@@ -40,6 +40,10 @@ const getGroupLabels = () => {
 };
 
 export const log = (...messages: unknown[]) => {
+    if (process.env.TEST_FILE) {
+        return;
+    }
+
     let reqId = '';
     try {
         reqId = readFileSync('reqId.log', 'utf8');

@@ -184,7 +184,7 @@ services:
         reservations:
           # cpus: '0.5'
           memory: 4G
-    command: ['node', 'dist/scripts/start-downloading-worker.js']
+    command: ['node', 'dist/src/scripts/start-downloading-worker.js']
     healthcheck:
       test:
         [
@@ -233,7 +233,7 @@ services:
         reservations:
           # cpus: '0.5'
           memory: 4G
-    command: ['node', 'dist/scripts/start-processing-worker.js']
+    command: ['node', 'dist/src/scripts/start-processing-worker.js']
     healthcheck:
       test:
         [
@@ -282,7 +282,7 @@ services:
         reservations:
           # cpus: '0.25'
           memory: 1G
-    command: ['node', 'dist/scripts/start-publishing-worker.js']
+    command: ['node', 'dist/src/scripts/start-publishing-worker.js']
     healthcheck:
       test:
         [

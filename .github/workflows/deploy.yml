@@ -101,11 +101,8 @@ jobs:
           # Copy docker-compose and configuration files
           scp docker-compose.prod.yml ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
           scp -r docker/ ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
-          scp -r scripts/ ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
           scp .env.production ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
           scp Makefile ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
-          # Copy updated knexfile.js to fix database connection issues
-          scp knexfile.js ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
 
       - name: Login to container registry on server
         run: |
@@ -248,7 +245,8 @@ jobs:
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d temporal temporal-ui
 
           echo "⏳ Waiting for Temporal to be ready..."
-          sleep 30
+          timeout 120 bash -c \
+            'until [ "$(docker-compose -f docker-compose.prod.yml --env-file .env.production ps -q temporal | xargs docker inspect -f '{{.State.Health.Status}}')" == "healthy" ]; do sleep 2; done'
 
           echo "🚀 Starting Application and Workers..."
           docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker publishing-init-worker publishing-exec-worker
@@ -297,9 +295,14 @@ jobs:
           ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
             cd /opt/instagram-video-downloader
             
-            # Wait for services to be fully ready
-            echo "⏳ Waiting for services to be ready..."
-            sleep 60
+            echo "⏳ Waiting for services to be healthy..."
+            services_to_check="app downloading-worker processing-worker publishing-init-worker publishing-exec-worker"
+            for service in $services_to_check; do
+              echo "... waiting for $service"
+              timeout 120 bash -c \
+                "until [ \"$(docker-compose -f docker-compose.prod.yml --env-file .env.production ps -q $service | xargs docker inspect -f '{{.State.Health.Status}}')\" == \"healthy\" ]; do sleep 2; done"
+            done
+            echo "✅ All services are healthy!"
             
             # Run health check script
             if [ -f scripts/health-check.sh ]; then
@@ -330,7 +333,7 @@ jobs:
             # Run communication verification script
             if [ -f scripts/verify-communication.ts ]; then
               echo "🔍 Running communication verification..."
-              docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app node dist/scripts/verify-communication.js || {
+              docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app node dist/src/scripts/verify-communication.js || {
                 echo "⚠️ Communication verification failed, but deployment continues"
               }
             fi

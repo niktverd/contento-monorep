@@ -20,5 +20,6 @@ module.exports = {
         '^\\$(.*)$': '<rootDir>/src/sections/$1',
         '^#types$': '<rootDir>/src/types/index.ts',
     },
-    setupFilesAfterEnv: ['<rootDir>/testApi/clearDbBeforeEach.js'],
+    setupFilesAfterEnv: ['<rootDir>/src/testApi/clearDbBeforeEach.js'],
+    testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };

@@ -22,7 +22,6 @@ FROM dependencies AS builder
 
 # Copy source files
 COPY src/ ./src/
-COPY scripts/ ./scripts/
 COPY index.ts ./
 COPY app.ts ./
 COPY generate-types.ts ./
@@ -34,10 +33,8 @@ RUN npm run build
 # Copy knexfile.js to dist/server/ for runtime access by compiled code
 RUN cp knexfile.js dist/server/
 
-# Copy compiled worker scripts to expected path for runtime compatibility
-RUN mkdir -p dist/scripts \
-    && cp -r dist/server/scripts/* dist/scripts/ \
-    && cp -r dist/server/src dist/src
+# Copy all build output to dist/ for correct runtime structure
+RUN cp -r dist/server/* dist/
 
 # Prune to production dependencies only
 RUN npm prune --production && npm cache clean --force
@@ -65,8 +62,8 @@ COPY --from=builder --chown=appuser:nodejs /app/package*.json ./
 
 # Copy runtime configuration files
 COPY --chown=appuser:nodejs knexfile.js ./
-COPY --chown=appuser:nodejs migrations/ ./migrations/
-COPY --chown=appuser:nodejs seeds/ ./seeds/
+COPY --chown=appuser:nodejs src/db/migrations/ ./src/db/migrations/
+COPY --chown=appuser:nodejs src/db/seeds/ ./src/db/seeds/
 
 # Create required directories with proper permissions
 RUN mkdir -p \

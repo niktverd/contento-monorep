@@ -1,9 +1,21 @@
 # Knip report
 
-## Unused files (13)
+## Unused files (26)
 
 * src/db/scripts/migrateToPostgres.ts
 * src/db/services/UserService.ts
+* src/scripts/e2e-deploy-test.ts
+* src/scripts/full-deployment-test.ts
+* src/scripts/load-test-temporal.ts
+* src/scripts/run-migrations.ts
+* src/scripts/start-downloading-worker.ts
+* src/scripts/start-processing-worker.ts
+* src/scripts/start-publishing-exec-worker.ts
+* src/scripts/start-publishing-init-worker.ts
+* src/scripts/start-worker.ts
+* src/scripts/test-workflow.ts
+* src/scripts/verify-communication.ts
+* src/scripts/verify-db-isolation.ts
 * src/sections/chore/components/preprocess-video.ts
 * src/sections/cloud-run/components/scenarios/CoverWithImage.ts
 * src/sections/cloud-run/components/scenarios/LognVideoWithShortInjections.ts
@@ -12,16 +24,18 @@
 * src/sections/youtube/components/youtube.ts
 * src/temporal/activities/configs.ts
 * src/temporal/worker.ts
+* src/testApi/utils/factories.ts
 * src/tests/requests/imitateInstagramMessageWebhook.ts
 * src/utils/migrationHelper.ts
 * src/utils/scenarios.ts
 
-## Unused dependencies (5)
+## Unused dependencies (6)
 
 | Name                   | Location          | Severity |
 | :--------------------- | :---------------- | :------- |
 | typescript-json-schema | package.json:97:6 | error    |
 | @temporalio/testing    | package.json:73:6 | error    |
+| @temporalio/worker     | package.json:74:6 | error    |
 | cors                   | package.json:77:6 | error    |
 | uuid                   | package.json:98:6 | error    |
 | pg                     | package.json:93:6 | error    |

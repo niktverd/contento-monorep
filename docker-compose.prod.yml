@@ -114,27 +114,6 @@ services:
         aliases:
           - temporal-web
 
-  migrations:
-    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
-    container_name: migrations-prod
-    command: ['npx', 'knex', 'migrate:latest']
-    environment:
-      - APP_DATABASE_URL=${APP_DATABASE_URL}
-      - APP_ENV=server-production
-      - KNEX_ENV=server-production
-      - NODE_ENV=production
-    volumes:
-      # Mount updated knexfile.js to fix database connection
-      - ./knexfile.js:/app/knexfile.js:ro
-    depends_on:
-      postgresql:
-        condition: service_healthy
-    restart: 'no'
-    networks:
-      temporal-prod-network:
-        aliases:
-          - migrations
-
   app:
     image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
     container_name: instagram-app-prod
@@ -143,8 +122,7 @@ services:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      migrations:
-        condition: service_started
+
     environment:
       - NODE_ENV=production
       - APP_ENV=server-production
@@ -171,8 +149,7 @@ services:
       - app-logs:/app/logs
       # Downloaded content storage
       - app-downloads:/app/downloads
-      # Mount updated knexfile.js to fix database connection
-      - ./knexfile.js:/app/knexfile.js:ro
+
     # App only accessible via NGINX proxy - no external ports
     deploy:
       resources:
@@ -203,8 +180,7 @@ services:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      migrations:
-        condition: service_started
+
     environment:
       - NODE_ENV=production
       - APP_ENV=server-production
@@ -236,9 +212,8 @@ services:
       - app-downloads:/app/downloads
       # Temporary processing space
       - downloading-worker-temp:/tmp
-      # Mount updated knexfile.js to fix database connection
-      - ./knexfile.js:/app/knexfile.js:ro
-    command: ['node', 'dist/scripts/start-downloading-worker.js']
+
+    command: ['node', 'dist/src/scripts/start-downloading-worker.js']
     deploy:
       resources:
         limits:
@@ -248,7 +223,7 @@ services:
           # cpus: '2'
           memory: 16G
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-downloading-worker.js']
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-downloading-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -267,8 +242,7 @@ services:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      migrations:
-        condition: service_started
+
     environment:
       - NODE_ENV=production
       - APP_ENV=server-production
@@ -301,9 +275,8 @@ services:
       # Large temporary processing space for video operations
       - processing-worker-temp:/tmp
       - processing-worker-cache:/app/cache
-      # Mount updated knexfile.js to fix database connection
-      - ./knexfile.js:/app/knexfile.js:ro
-    command: ['node', 'dist/scripts/start-processing-worker.js']
+
+    command: ['node', 'dist/src/scripts/start-processing-worker.js']
     deploy:
       resources:
         limits:
@@ -313,7 +286,7 @@ services:
           # cpus: '2'
           memory: 16G
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-processing-worker.js']
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-processing-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -365,7 +338,7 @@ services:
   #     - publishing-worker-temp:/tmp
   #     # Mount updated knexfile.js to fix database connection
   #     - ./knexfile.js:/app/knexfile.js:ro
-  #   command: ['node', 'dist/scripts/start-publishing-init-worker.js']
+  #   command: ['node', 'dist/src/scripts/start-publishing-init-worker.js']
   #   deploy:
   #     resources:
   #       limits:
@@ -375,7 +348,7 @@ services:
   #         # cpus: '0.5'
   #         memory: 2G
   #   healthcheck:
-  #     test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-publishing-worker.js']
+  #     test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-worker.js']
   #     interval: 30s
   #     timeout: 10s
   #     retries: 3
@@ -394,8 +367,7 @@ services:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      migrations:
-        condition: service_started
+
     environment:
       - NODE_ENV=production
       - APP_ENV=server-production
@@ -420,8 +392,8 @@ services:
       - publishing-worker-logs:/app/logs
       - app-downloads:/app/downloads
       - publishing-worker-temp:/tmp
-      - ./knexfile.js:/app/knexfile.js:ro
-    command: ['node', 'dist/scripts/start-publishing-init-worker.js']
+
+    command: ['node', 'dist/src/scripts/start-publishing-init-worker.js']
     deploy:
       resources:
         limits:
@@ -429,7 +401,7 @@ services:
         reservations:
           memory: 1G
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-publishing-init-worker.js']
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-init-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -448,8 +420,7 @@ services:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      migrations:
-        condition: service_started
+
     environment:
       - NODE_ENV=production
       - APP_ENV=server-production
@@ -474,8 +445,8 @@ services:
       - publishing-exec-worker-logs:/app/logs
       - app-downloads:/app/downloads
       - publishing-exec-worker-temp:/tmp
-      - ./knexfile.js:/app/knexfile.js:ro
-    command: ['node', 'dist/scripts/start-publishing-exec-worker.js']
+
+    command: ['node', 'dist/src/scripts/start-publishing-exec-worker.js']
     deploy:
       resources:
         limits:
@@ -483,7 +454,7 @@ services:
         reservations:
           memory: 2G
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'dist/scripts/start-publishing-exec-worker.js']
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-exec-worker.js']
       interval: 30s
       timeout: 10s
       retries: 3

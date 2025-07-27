@@ -19,7 +19,7 @@
       "$/*": ["src/sections/*"]
     }
   },
-  "include": ["src", "app.ts", "index.ts", "scripts"],
+  "include": ["src", "app.ts", "index.ts", "src/scripts"],
   "files": [],
   "exclude": ["node_modules"]
 }

@@ -311,13 +311,6 @@ Required environment variables (see .env.example for a complete list):
      --allow-unauthenticated
    ```
 
-### Automated Deployment with Cloud Build
-
-1. Connect your GitHub repository to Cloud Build
-2. Create a build trigger that uses the cloudbuild.yaml configuration
-
-Cloud Build will automatically build and deploy your application whenever you push to your repository.
-
 ### Automated Deployment with GitHub Actions
 
 This project includes a GitHub Actions workflow for automatic deployment to Google Cloud Run when you push to the main branch.

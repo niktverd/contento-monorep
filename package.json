@@ -52,7 +52,7 @@
     "migrate:firestore": "ts-node src/scripts/migrateToPostgres.ts",
     "generate-types": "npx ts-node generate-types.ts",
     "gt": "npx ts-node generate-types.ts",
-    "jest": "jest testApi --detectOpenHandles",
+    "jest": "jest testApi --detectOpenHandles $TEST_FILE",
     "test:api": "podman compose -f docker-compose.yml up -d && npx wait-port localhost:5432 && dotenv -e .env.test -- npx knex migrate:latest --env test && dotenv -e .env.test -- npm run jest && podman compose -f docker-compose.yml down"
   },
   "lint-staged": {

@@ -32,10 +32,10 @@ const getConnectionConfig = () => {
     // Fourth priority: POSTGRES_CONFIG parsing for backward compatibility
     const {
         host = 'localhost',
-        port = 5432,
-        user = 'postgres',
-        password = 'postgres',
-        database = 'postgres',
+        port = 5433,
+        user = 'temporal',
+        password = 'temporal',
+        database = 'temporal',
     } = JSON.parse(process.env.POSTGRES_CONFIG || '{}');
 
     return {
@@ -66,7 +66,6 @@ const getTestConnectionConfig = () => {
 
 const connectionConfig = getConnectionConfig();
 const testConnectionConfig = getTestConnectionConfig();
-
 module.exports = {
     development: {
         client: 'pg',
@@ -78,10 +77,10 @@ module.exports = {
                       ssl: false,
                   },
         migrations: {
-            directory: './migrations',
+            directory: './src/db/migrations',
         },
         seeds: {
-            directory: './seeds',
+            directory: './src/db/seeds',
         },
         pool: {
             min: 2,
@@ -99,10 +98,10 @@ module.exports = {
                       ssl: {rejectUnauthorized: false},
                   },
         migrations: {
-            directory: './migrations',
+            directory: './src/db/migrations',
         },
         seeds: {
-            directory: './seeds',
+            directory: './src/db/seeds',
         },
         pool: {
             min: 2,
@@ -119,10 +118,10 @@ module.exports = {
                       ssl: {rejectUnauthorized: false},
                   },
         migrations: {
-            directory: './migrations',
+            directory: './src/db/migrations',
         },
         seeds: {
-            directory: './seeds',
+            directory: './src/db/seeds',
         },
         pool: {
             min: 1,
@@ -139,14 +138,14 @@ module.exports = {
                       ssl: false,
                   },
         migrations: {
-            directory: './migrations',
+            directory: './src/db/migrations',
         },
         seeds: {
-            directory: './seeds',
+            directory: './src/db/seeds',
         },
         pool: {
             min: 1,
-            max: 2,
+            max: 20,
         },
     },
 };
