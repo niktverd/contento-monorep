@@ -5,4 +5,18 @@ export type IResponse<T> = Promise<{
     code?: number;
 }>;
 
-export type ApiFunctionPrototype<T, R> = (args: T, trx: TransactionOrKnex) => IResponse<R>;
+type AuthentificatedUser = {
+    uid: string;
+    name: string;
+    email: string;
+    id: number;
+};
+
+export type ApiFunctionPrototype<T, R> = (
+    args: T,
+    trx: TransactionOrKnex,
+    options?: {
+        user?: AuthentificatedUser;
+        organizationId?: number;
+    },
+) => IResponse<R>;

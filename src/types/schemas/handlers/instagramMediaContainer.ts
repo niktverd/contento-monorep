@@ -1,5 +1,6 @@
 import {z} from 'zod';
 
+import {IInstagramMediaContainer} from '#schemas/models/instagramMediaContainer';
 import {InstagramMediaContainerSchema} from '#src/types/schemas/models';
 
 export const CreateInstagramMediaContainerParamsSchema = InstagramMediaContainerSchema.omit({
@@ -49,3 +50,41 @@ export const InstagramMediaContainersStatisticsParamsSchema = z
         days: z.array(z.string()),
     })
     .strict();
+
+// types
+
+export type CreateInstagramMediaContainerParams = Omit<IInstagramMediaContainer, 'id'>;
+export type CreateInstagramMediaContainerResponse = IInstagramMediaContainer;
+
+export type GetInstagramMediaContainerByIdParams = z.infer<
+    typeof GetInstagramMediaContainerByIdParamsSchema
+>;
+export type GetInstagramMediaContainerByIdResponse = IInstagramMediaContainer;
+
+export type GetAllInstagramMediaContainersParams = z.infer<
+    typeof GetAllInstagramMediaContainersParamsSchema
+>;
+export type GetAllInstagramMediaContainersResponse = {
+    mediaContainers: IInstagramMediaContainer[];
+    count: number;
+};
+
+export type UpdateInstagramMediaContainerParams = z.infer<
+    typeof UpdateInstagramMediaContainerParamsSchema
+>;
+export type UpdateInstagramMediaContainerResponse = IInstagramMediaContainer;
+
+export type DeleteInstagramMediaContainerParams = z.infer<
+    typeof DeleteInstagramMediaContainerParamsSchema
+>;
+export type DeleteInstagramMediaContainerResponse = number;
+
+export type GetLimitedInstagramMediaContainersParams = z.infer<
+    typeof GetLimitedInstagramMediaContainersParamsSchema
+>;
+export type GetLimitedInstagramMediaContainersResponse = IInstagramMediaContainer[];
+
+export type InstagramMediaContainersStatisticsParams = z.infer<
+    typeof InstagramMediaContainersStatisticsParamsSchema
+>;
+export type InstagramMediaContainersStatisticsResponse = Record<string, number>;

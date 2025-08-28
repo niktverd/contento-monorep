@@ -1,6 +1,5 @@
-import {CreateAccountParams} from '../../types/account';
+import {CreateAccountParams, CreateScenarioParams} from '../../types';
 import {InstagramLocationSource, ScenarioType} from '../../types/enums';
-import {CreateScenarioParams} from '../../types/scenario';
 
 // Account factory
 export function buildAccountPayload(

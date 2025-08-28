@@ -4,6 +4,7 @@ const {execSync} = require('child_process');
 const {db} = require('../db/utils');
 
 beforeAll(async () => {
+    process.env.SUPER_ADMIN_SECRET = process.env.SUPER_ADMIN_SECRET || 'test-secret';
     // Откатываем все миграции и накатываем заново
     execSync('npx knex migrate:rollback --all');
     execSync('npx knex migrate:latest');
@@ -22,6 +23,11 @@ beforeEach(async () => {
     if (tableNames) {
         await db.raw(`TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE`);
     }
+
+    // Insert a default organization for FK constraints in UI tests
+    const inserted = await db('organizations').insert({name: 'Default Test Org'}).returning('id');
+    const orgId = Array.isArray(inserted) ? inserted[0].id ?? inserted[0] : inserted;
+    process.env.TEST_ORG_ID = String(orgId);
 });
 
 afterAll(async () => {

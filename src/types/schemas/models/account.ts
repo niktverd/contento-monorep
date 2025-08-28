@@ -9,8 +9,13 @@ export const AccountSchema = createEntitySchema({
     enabled: z.boolean(),
     token: z.string().optional(),
     userIdIG: z.string().optional().nullable(),
+    organizationId: z.number(),
 
     // added on request
     availableScenarios: z.array(ScenarioSchema).optional(),
     instagramLocations: z.array(InstagramLocationSchema).optional(),
 }).strict();
+
+// types
+
+export type IAccount = z.infer<typeof AccountSchema>;

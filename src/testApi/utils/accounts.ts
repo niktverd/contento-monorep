@@ -9,7 +9,13 @@ import {
     GetAccountBySlugParams,
     GetAllAccountsParams,
     UpdateAccountParams,
-} from '../../types/account';
+} from '../../types';
+
+import {getOrgHeader, getUserTokenHeader, prepareRoute} from './common';
+
+import {fullRoutes} from '#src/types/routes/account';
+
+const {create, list, get, update, delete: deleteRoute, getBySlug} = fullRoutes;
 
 // Minimal valid payload for creating an account
 const defaultCreatePayload: CreateAccountParams = {
@@ -23,7 +29,9 @@ export async function createAccountHelper(
     testApp: Express = app,
 ) {
     return request(testApp)
-        .post('/api/ui/add-account')
+        .post(prepareRoute(create))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
         .send({...defaultCreatePayload, ...payload});
 }
 
@@ -31,24 +39,44 @@ export async function getAllAccountsHelper(
     testApp: Express = app,
     query: Partial<GetAllAccountsParams> = {},
 ) {
-    return request(testApp).get('/api/ui/get-accounts').query(query);
+    return request(testApp)
+        .get(prepareRoute(list))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .query(query);
 }
 
 export async function getAccountByIdHelper(params: GetAccountByIdParams, testApp: Express = app) {
-    return request(testApp).get('/api/ui/get-account-by-id').query(params);
+    return request(testApp)
+        .get(prepareRoute(get))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .query(params);
 }
 
 export async function getAccountBySlugHelper(
     params: GetAccountBySlugParams,
     testApp: Express = app,
 ) {
-    return request(testApp).get('/api/ui/get-account-by-slug').query(params);
+    return request(testApp)
+        .get(prepareRoute(getBySlug))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .query(params);
 }
 
 export async function updateAccountHelper(payload: UpdateAccountParams, testApp: Express = app) {
-    return request(testApp).patch('/api/ui/patch-account').send(payload);
+    return request(testApp)
+        .patch(prepareRoute(update))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .send(payload);
 }
 
 export async function deleteAccountHelper(params: DeleteAccountParams, testApp: Express = app) {
-    return request(testApp).delete('/api/ui/delete-account').query(params);
+    return request(testApp)
+        .delete(prepareRoute(deleteRoute))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .query(params);
 }

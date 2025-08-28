@@ -9,14 +9,6 @@ import {
 } from '../../../db';
 
 import {
-    CreateUserParamsSchema,
-    DeleteUserParamsSchema,
-    GetAllUsersParamsSchema,
-    GetUserByEmailParamsSchema,
-    GetUserByIdParamsSchema,
-    UpdateUserParamsSchema,
-} from '#src/types/schemas/handlers/user';
-import {
     CreateUserParams,
     CreateUserResponse,
     DeleteUserParams,
@@ -29,7 +21,15 @@ import {
     GetUserByIdResponse,
     UpdateUserParams,
     UpdateUserResponse,
-} from '#src/types/user';
+} from '#src/types';
+import {
+    CreateUserParamsSchema,
+    DeleteUserParamsSchema,
+    GetAllUsersParamsSchema,
+    GetUserByEmailParamsSchema,
+    GetUserByIdParamsSchema,
+    UpdateUserParamsSchema,
+} from '#src/types/schemas/handlers/user';
 
 export const createUserPost = wrapper<CreateUserParams, CreateUserResponse>(
     createUser,

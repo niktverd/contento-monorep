@@ -52,3 +52,16 @@ export const queryToNumberStrict = (val: unknown): number => {
 
     return num;
 };
+
+export const queryToStringArray = (val: unknown): string[] => {
+    if (!val) {
+        return [];
+    }
+    if (Array.isArray(val)) {
+        return val.map(String);
+    }
+    if (typeof val === 'string') {
+        return [val];
+    }
+    return [String(val)];
+};

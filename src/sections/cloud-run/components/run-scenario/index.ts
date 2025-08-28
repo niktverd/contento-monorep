@@ -5,18 +5,17 @@ import {rmSync, writeFileSync} from 'fs';
 import {ScenarioMap} from '../scenarios/ScenarioMap';
 import {getVideoDuration} from '../video';
 
-import {IAccount} from '#src/types/account';
+import {GetCloudRunScenarioExecutionResponse} from '#schemas/handlers/cloudRunScenarioExecution';
+import {ICloudRunScenarioExecution} from '#schemas/models/cloudRunScenarioExecution';
+import {IAccount, IScenario, ISource} from '#src/types';
 import {
     CloudRunCreateScenarioVideoParams,
     CloudRunCreateScenarioVideoResponse,
 } from '#src/types/cloud-run';
 import {ApiFunctionPrototype} from '#src/types/common';
 import {CloudRunScenarioExecutionStatusEnum, ScenarioType} from '#src/types/enums';
-import {IScenario} from '#src/types/scenario';
-import {ISource} from '#src/types/source';
 import {ThrownError} from '#src/utils/error';
 import {fetchGet, fetchPatch, fetchPost} from '#src/utils/fetchHelpers';
-import {GetCloudRunScenarioExecutionResponse, ICloudRunScenarioExecution} from '#types';
 import {FetchRoutes, getWorkingDirectoryForVideo, log, uploadFileToServer} from '#utils';
 
 // eslint-disable-next-line valid-jsdoc

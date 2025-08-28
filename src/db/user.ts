@@ -1,22 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {ApiFunctionPrototype} from '#src/types/common';
-import {User} from '#src/types/models';
-import {CreateUserParamsSchema, UpdateUserParamsSchema} from '#src/types/schemas/handlers/user';
+import {User} from '#src/db/models';
 import {
     CreateUserParams,
+    CreateUserParamsSchema,
     CreateUserResponse,
     DeleteUserParams,
     DeleteUserResponse,
     GetAllUsersParams,
     GetAllUsersResponse,
+    GetOrCreateUserParams,
+    GetOrCreateUserResponse,
     GetUserByEmailParams,
     GetUserByEmailResponse,
     GetUserByIdParams,
     GetUserByIdResponse,
+    GetUserByUidParams,
+    GetUserByUidResponse,
+    IOrganization,
+    IRole,
     IUser,
     UpdateUserParams,
+    UpdateUserParamsSchema,
     UpdateUserResponse,
-} from '#src/types/user';
+} from '#src/types';
+import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createUser: ApiFunctionPrototype<CreateUserParams, CreateUserResponse> = async (
@@ -25,18 +32,15 @@ export const createUser: ApiFunctionPrototype<CreateUserParams, CreateUserRespon
 ) => {
     const paramsValidated = CreateUserParamsSchema.parse(params);
 
-    const userData: Omit<IUser, 'id'> = {
+    const userData: Omit<IUser, 'id' | 'roles' | 'organizations'> = {
         email: paramsValidated.email,
-        displayName: paramsValidated.displayName,
-        photoURL: paramsValidated.photoURL,
-        providerData: paramsValidated.providerData || null,
-        providerId: paramsValidated.providerId || null,
-        password: paramsValidated.password,
+        name: paramsValidated.name,
+        uid: paramsValidated.uid,
     };
 
     const user = await User.query(db).insert(userData);
     return {
-        result: user,
+        result: {...user, roles: [] as IRole[], organizations: [] as IOrganization[]},
         code: 200,
     };
 };
@@ -48,6 +52,44 @@ export const getUserById: ApiFunctionPrototype<GetUserByIdParams, GetUserByIdRes
     const user = await User.query(db).findById(params.id);
     if (!user) {
         throw new ThrownError('User not found', 404);
+    }
+
+    return {
+        result: user,
+        code: 200,
+    };
+};
+export const getUserByUid: ApiFunctionPrototype<GetUserByUidParams, GetUserByUidResponse> = async (
+    params,
+    db,
+) => {
+    const {uid, organizationId} = params;
+
+    const userQuery = User.query(db).findOne({uid: uid});
+
+    if (organizationId) {
+        userQuery
+            .withGraphFetched('[organizations, roles]')
+            .modifyGraph('organizations', (builder) => {
+                builder.where('organizations.id', organizationId);
+            })
+            .modifyGraph('roles', (builder) => {
+                builder.where('userOrganizationRoles.organizationId', organizationId);
+            });
+    }
+
+    const user = await userQuery;
+
+    if (!user) {
+        throw new ThrownError('User not found', 404);
+    }
+
+    if (!user.roles) {
+        user.roles = [];
+    }
+
+    if (!user.organizations) {
+        user.organizations = [];
     }
 
     return {
@@ -106,4 +148,20 @@ export const deleteUser: ApiFunctionPrototype<DeleteUserParams, DeleteUserRespon
         result: deletedCount,
         code: 200,
     };
+};
+
+export const getOrCreateUser: ApiFunctionPrototype<
+    GetOrCreateUserParams,
+    GetOrCreateUserResponse
+> = async (params, db) => {
+    const {organizationId, ...userData} = params;
+    if (!params.uid) {
+        throw new ThrownError('UID is not provider', 404);
+    }
+
+    try {
+        return await getUserByUid({uid: params.uid, organizationId}, db);
+    } catch {}
+
+    return await createUser(userData, db);
 };

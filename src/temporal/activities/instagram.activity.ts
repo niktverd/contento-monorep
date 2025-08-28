@@ -7,8 +7,7 @@ import {
     publishInstagramPostContainer,
 } from '#src/sections/instagram/components/instagram';
 import {IPreparedVideo, InstagramLocationSource} from '#src/types';
-import {IAccount} from '#src/types/account';
-import {IScenario} from '#src/types/scenario';
+import {IAccount, IScenario} from '#src/types/';
 import {
     CreateInstagramContainerInput,
     CreateInstagramContainerResult,

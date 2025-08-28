@@ -9,7 +9,8 @@ moduleAlias.addAliases({
     '#tests': path.join(__dirname, '../tests'),
     '#types': path.join(__dirname, '../types/index.ts'),
     '#utils': path.join(__dirname, '../utils/index.ts'),
-    '#schemas': path.join(__dirname, '../schemas'),
+    '#schemas': path.join(__dirname, '../types/schemas'),
+    '#models': path.join(__dirname, '../db/models'),
     '#src': path.join(__dirname, '..'),
     $: path.join(__dirname, '../sections'),
 });

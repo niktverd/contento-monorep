@@ -9,8 +9,9 @@ import {
     GetInstagramLocationByIdResponse,
     UpdateInstagramLocationParams,
     UpdateInstagramLocationResponse,
-} from '../types/instagramLocation';
-import {InstagramLocation} from '../types/models/InstagramLocation';
+} from '../types';
+
+import {InstagramLocation} from './models/InstagramLocation';
 
 import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';

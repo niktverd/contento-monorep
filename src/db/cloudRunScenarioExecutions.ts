@@ -1,4 +1,5 @@
-import {CloudRunScenarioExecution} from '../types/models/CloudRunScenarioExecution';
+import {CloudRunScenarioExecution} from './models/CloudRunScenarioExecution';
+import {scopeByOrg} from './utils';
 
 import {
     CloudRunScenarioExecutionParams,
@@ -7,15 +8,24 @@ import {
     GetCloudRunScenarioExecutionResponse,
     UpdateCloudRunScenarioExecutionParams,
     UpdateCloudRunScenarioExecutionResponse,
-} from '#src/types/cloudRunScenarioExecution';
+} from '#schemas/handlers/cloudRunScenarioExecution';
 import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createCloudRunScenarioExecution: ApiFunctionPrototype<
     CloudRunScenarioExecutionParams,
     CreateCloudRunScenarioExecutionResponse
-> = async (params, db) => {
-    const created = await CloudRunScenarioExecution.query(db).insert(params);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const created = await CloudRunScenarioExecution.query(db).insert({
+        ...params,
+        organizationId,
+    });
     return {
         result: created,
         code: 200,
@@ -25,7 +35,13 @@ export const createCloudRunScenarioExecution: ApiFunctionPrototype<
 export const getAllCloudRunScenarioExecution: ApiFunctionPrototype<
     GetAllCloudRunScenarioExecutionParams,
     GetCloudRunScenarioExecutionResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {
         page = '1',
         limit = '10',
@@ -40,7 +56,7 @@ export const getAllCloudRunScenarioExecution: ApiFunctionPrototype<
         queueName,
     } = params;
 
-    const query = CloudRunScenarioExecution.query(db);
+    const query = scopeByOrg(CloudRunScenarioExecution.query(db), organizationId);
 
     if (messageId) {
         query.where('messageId', messageId);
@@ -83,10 +99,16 @@ export const getAllCloudRunScenarioExecution: ApiFunctionPrototype<
 export const updateCloudRunScenarioExecutionStatus: ApiFunctionPrototype<
     UpdateCloudRunScenarioExecutionParams,
     UpdateCloudRunScenarioExecutionResponse
-> = async ({id, ...rest}, db) => {
+> = async ({id, ...rest}, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const updated = await CloudRunScenarioExecution.query(db)
         .patch(rest)
-        .where({id})
+        .where({id, organizationId})
         .returning('*')
         .first();
     if (!updated) {

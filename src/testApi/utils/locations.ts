@@ -5,7 +5,10 @@ import {
     CreateInstagramLocationParams,
     DeleteInstagramLocationParams,
     UpdateInstagramLocationParams,
-} from '../../types/instagramLocation';
+} from '../../types';
+import {fullRoutes as instagramLocationRoutes} from '../../types/routes/instagramLocation';
+
+import {getOrgHeader, getUserTokenHeader, prepareRoute} from './common';
 
 export const createLocationHelper = async (
     params: CreateInstagramLocationParams | undefined,
@@ -23,20 +26,35 @@ export const createLocationHelper = async (
               group: 'test',
           };
 
-    return request(testApp).post('/api/ui/create-instagram-location').send(paramsLocal);
+    return request(testApp)
+        .post(prepareRoute(instagramLocationRoutes.create))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .send(paramsLocal);
 };
 
 export const getAllLocationsHelper = (testApp: Express) => {
-    return request(testApp).get('/api/ui/get-all-instagram-locations');
+    return request(testApp)
+        .get(prepareRoute(instagramLocationRoutes.list))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader());
 };
 
 export const updateLocationHelper = (
     params: Partial<UpdateInstagramLocationParams>,
     testApp: Express,
 ) => {
-    return request(testApp).patch(`/api/ui/update-instagram-location`).send(params);
+    return request(testApp)
+        .patch(prepareRoute(instagramLocationRoutes.update))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .send(params);
 };
 
 export const deleteLocationHelper = (params: DeleteInstagramLocationParams, testApp: Express) => {
-    return request(testApp).delete(`/api/ui/delete-instagram-location`).query(params);
+    return request(testApp)
+        .delete(prepareRoute(instagramLocationRoutes.delete))
+        .set(getUserTokenHeader())
+        .set(getOrgHeader())
+        .query(params);
 };

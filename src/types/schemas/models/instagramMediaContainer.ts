@@ -17,4 +17,7 @@ export const InstagramMediaContainerSchema = createEntitySchema({
     hashtags: z.array(z.string()).optional(),
     isBlocked: z.boolean().optional(),
     blockedReason: z.string().optional(),
+    organizationId: z.number().optional(),
 }).strict();
+
+export type IInstagramMediaContainer = z.infer<typeof InstagramMediaContainerSchema>;

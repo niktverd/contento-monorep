@@ -14,4 +14,7 @@ export const PreparedVideoSchema = createEntitySchema({
     scenario: ScenarioSchema.optional(),
     source: SourceSchema.optional(),
     account: AccountSchema.optional(),
+    organizationId: z.number().optional(),
 }).strict();
+
+export type IPreparedVideo = z.infer<typeof PreparedVideoSchema>;

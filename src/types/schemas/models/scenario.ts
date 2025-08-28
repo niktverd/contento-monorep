@@ -17,7 +17,10 @@ export const ScenarioSchema = createEntitySchema({
         .nativeEnum(InstagramLocationSource)
         .default(InstagramLocationSource.Scenario)
         .optional(),
+    organizationId: z.number().optional(),
 
     // added on request
     instagramLocations: z.array(InstagramLocationSchema).optional(),
 }).strict();
+
+export type IScenario = z.infer<typeof ScenarioSchema>;

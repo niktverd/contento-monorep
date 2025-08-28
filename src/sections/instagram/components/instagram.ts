@@ -15,6 +15,7 @@ import {getDownloadURL, ref, uploadBytes} from 'firebase/storage';
 import {shuffle} from 'lodash';
 
 import {firestore, storage} from '#config/firebase';
+import {PublishIntagramV4PostResponse} from '#schemas/handlers/publishInstagram';
 import casinoAudioNames from '#src/config/casino.audioname.json';
 import {DelayMS, DelayS} from '#src/constants';
 import {
@@ -24,7 +25,6 @@ import {
     updateInstagramMediaContainer,
 } from '#src/db';
 import {ApiFunctionPrototype} from '#src/types/common';
-import {PublishIntagramV4PostResponse} from '#src/types/publishInstagram';
 import {ThrownError} from '#src/utils/error';
 import {IAccount, InstagramLocationSource, MediaPostModelOld} from '#types';
 import {

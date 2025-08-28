@@ -1,5 +1,7 @@
+import request from 'supertest';
+
 import testApp from '../../app';
-import * as accountsController from '../sections/ui/controllers/accounts.controller';
+import * as accountsController from '../sections/account/account.controller';
 
 // import './clearDbBeforeEach';
 import {
@@ -10,6 +12,12 @@ import {
     getAllAccountsHelper,
     updateAccountHelper,
 } from './utils/accounts';
+import {getOrgHeader, getUserTokenHeader, prepareRoute} from './utils/common';
+import {createScenarioHelper} from './utils/scenarios';
+
+import {fullRoutes} from '#src/types/routes/account';
+
+const {create, list, update} = fullRoutes;
 
 describe('accounts.controller', () => {
     it('should export all handlers', () => {
@@ -97,5 +105,91 @@ describe('accounts.controller', () => {
         expect(response2.body).toBeDefined();
         expect(response2.body.slug).toBe(response.body.slug);
         expect(response2.status).toBeLessThan(299);
+    });
+
+    describe('cross-organization validation', () => {
+        it('should reject creating account with scenario from different organization', async () => {
+            // Create a scenario in the default organization (org 1)
+            const scenarioResponse = await createScenarioHelper();
+            expect(scenarioResponse.status).toBeLessThan(299);
+            const {organizationId: _organizationId, ...scenario} = scenarioResponse.body; // Remove organizationId
+
+            // Try to create account with valid scenario but wrong org header
+            // Since organization 999 doesn't exist, the scenario won't belong to it
+            const accountResponse = await request(testApp)
+                .post(prepareRoute(create))
+                .set(getUserTokenHeader())
+                .set({'x-organization-id': '999'}) // Non-existent organization
+                .send({
+                    slug: 'test-cross-org-account',
+                    enabled: true,
+                    availableScenarios: [scenario], // Use scenario object without organizationId
+                });
+
+            expect(accountResponse.status).toBe(400);
+            expect(accountResponse.body.error).toContain(
+                'does not belong to the specified organization',
+            );
+        });
+
+        it('should reject updating account with scenario that does not exist', async () => {
+            // Create account in org 1
+            const accountResponse = await createAccountHelper();
+            expect(accountResponse.status).toBeLessThan(299);
+            const accountId = accountResponse.body.id;
+
+            // Create a fake scenario object that doesn't exist in the DB
+            const fakeScenario = {
+                id: 99999, // Non-existent scenario ID
+                slug: 'fake-scenario',
+                type: 'ScenarioAddBannerAtTheEndUnique',
+                enabled: true,
+            };
+
+            // Try to update account with non-existent scenario
+            const updateResponse = await request(testApp)
+                .patch(prepareRoute(update))
+                .set(getUserTokenHeader())
+                .set(getOrgHeader()) // Organization 1
+                .send({
+                    id: accountId,
+                    availableScenarios: [fakeScenario],
+                });
+
+            expect(updateResponse.status).toBe(404);
+            expect(updateResponse.body.error).toContain('not found');
+        });
+
+        it('should allow creating account with scenario from same organization', async () => {
+            // Create scenario in same organization
+            const scenarioResponse = await createScenarioHelper();
+            expect(scenarioResponse.status).toBeLessThan(299);
+            const {organizationId: _organizationId, ...scenario} = scenarioResponse.body; // Remove organizationId
+
+            // Create account with scenario from same organization
+            const accountResponse = await request(testApp)
+                .post(prepareRoute(create))
+                .set(getUserTokenHeader())
+                .set(getOrgHeader())
+                .send({
+                    slug: 'test-same-org-account',
+                    enabled: true,
+                    availableScenarios: [scenario], // Use scenario object without organizationId
+                });
+
+            expect(accountResponse.status).toBeLessThan(299);
+            expect(accountResponse.body.id).toBeDefined();
+        });
+    });
+
+    describe('Missing Organization Header', () => {
+        it('should return 403 when x-organization-id header is missing', async () => {
+            const response = await request(testApp)
+                .get(prepareRoute(list))
+                .set(getUserTokenHeader()); // Only auth token, no org header
+
+            expect(response.status).toBe(403);
+            expect(response.body.error).toContain('x-organization-id header is required');
+        });
     });
 });

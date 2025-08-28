@@ -1,10 +1,4 @@
-export * from './accounts.controller';
 export * from './instagram.controller';
-export * from './instagram-media-containers.controller';
-export * from './instagram-locations.controller';
 export * from './media-posts.controller';
-export * from './prepared-videos.controller';
-export * from './scenarios.controller';
-export * from './sources.controller';
+
 export * from './users.controller';
-export * from './cloud-run-scenario-executions.controller';

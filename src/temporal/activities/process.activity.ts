@@ -5,8 +5,8 @@ import {Context} from '@temporalio/activity';
 
 import {ScenarioMap} from '#src/sections/cloud-run/components/scenarios/ScenarioMap';
 import {getVideoDuration} from '#src/sections/cloud-run/components/video';
+import {IScenario} from '#src/types';
 import {ScenarioType} from '#src/types/enums';
-import {IScenario} from '#src/types/scenario';
 import {ProcessVideoActivityArgs, ProcessVideoActivityResponse} from '#src/types/temporal';
 import {FetchRoutes, getWorkingDirectoryForVideo, uploadFileToServer} from '#src/utils';
 import {NotRetryableError} from '#src/utils/error';

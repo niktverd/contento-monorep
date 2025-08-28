@@ -121,9 +121,11 @@ jobs:
           FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           ALLOWED_SENDER_ID: ${{ secrets.ALLOWED_SENDER_ID }}
+          SUPER_ADMIN_SECRET: ${{ secrets.SUPER_ADMIN_SECRET }}
           DOCKER_IMAGE: ${{ format('{0}/{1}@{2}', env.REGISTRY, env.IMAGE_NAME, needs.build-and-push.outputs.image-digest) }}
           DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
           APP_DATABASE_URL: postgresql://app_user:${{ secrets.APP_POSTGRES_PASSWORD }}@postgresql:5432/app_db
+          FIREBASE_ADMIN_SA_CONFIG: ${{ secrets.FIREBASE_ADMIN_SA_CONFIG }}
         run: |
           # Create secure deployment script with environment variables
           cat > deploy_script.sh << 'DEPLOY_EOF'
@@ -137,9 +139,11 @@ jobs:
           export APP_POSTGRES_PASSWORD="${APP_POSTGRES_PASSWORD}"
           export TEMPORAL_UI_PASSWORD="${TEMPORAL_UI_PASSWORD}" 
           export APP_ID="${APP_ID}"
+          export FIREBASE_ADMIN_SA_CONFIG="${FIREBASE_ADMIN_SA_CONFIG}"
           export API_SECRET="${API_SECRET}"
           export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
           export ALLOWED_SENDER_ID="${ALLOWED_SENDER_ID}"
+          export SUPER_ADMIN_SECRET="${SUPER_ADMIN_SECRET}"
           export HETZNER_SERVER_DOMAIN="${HETZNER_SERVER_DOMAIN}"
           export HETZNER_SERVER_HOST="${HETZNER_SERVER_HOST}"
 
@@ -277,11 +281,13 @@ jobs:
           export APP_POSTGRES_PASSWORD='${APP_POSTGRES_PASSWORD}'
           export TEMPORAL_UI_PASSWORD='${TEMPORAL_UI_PASSWORD}'
           export APP_ID='${APP_ID}'
+          export FIREBASE_ADMIN_SA_CONFIG='${FIREBASE_ADMIN_SA_CONFIG}'
           export API_SECRET='${API_SECRET}'
           export GOOGLE_APPLICATION_CREDENTIALS='${GOOGLE_APPLICATION_CREDENTIALS}'
           export FIREBASE_CONFIG='${FIREBASE_CONFIG}'
           export GCP_PROJECT_ID='${GCP_PROJECT_ID}'
           export ALLOWED_SENDER_ID='${ALLOWED_SENDER_ID}'
+          export SUPER_ADMIN_SECRET='${SUPER_ADMIN_SECRET}'
           export DOCKER_IMAGE='${DOCKER_IMAGE}'
           export DATABASE_URL='${DATABASE_URL}'
           export APP_DATABASE_URL='${APP_DATABASE_URL}'

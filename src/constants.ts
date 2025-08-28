@@ -44,3 +44,6 @@ export const accessTokensArray = JSON.parse(process.env.INSTAGRAM_ACCESS_TOKEN_A
 
 export const SECOND_VIDEO =
     'https://firebasestorage.googleapis.com/v0/b/media-automation-6aff2.firebasestorage.app/o/assets%2F0116.mp4?alt=media&token=60b0b84c-cd07-4504-9a6f-a6a44ea73ec4';
+
+export const USER_TOKEN_HEADER = 'x-user-token';
+export const TEST_USER_TOKEN_HEADER = 'x-test-user-token';

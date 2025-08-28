@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {OrderByDirection} from 'objection';
 
-import {Source} from '../types/models/Source';
+import {Source} from './models/Source';
 
 import {ApiFunctionPrototype} from '#src/types/common';
 import {
@@ -12,6 +11,7 @@ import {
     GetOneSourceParamsSchema as _GetOneSourceParamsSchema,
     GetSourceByIdParamsSchema as _GetSourceByIdParamsSchema,
 } from '#src/types/schemas/handlers/source';
+import {ThrownError} from '#src/utils/error';
 import {
     CreateSourceParams,
     CreateSourceResponse,
@@ -33,9 +33,19 @@ import {
 export const createSource: ApiFunctionPrototype<CreateSourceParams, CreateSourceResponse> = async (
     params,
     db,
+    options = {},
 ) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const validatedParams = CreateSourceParamsSchema.parse(params);
-    const source = await Source.query(db).insert(validatedParams);
+    const source = await Source.query(db).insert({
+        ...validatedParams,
+        organizationId,
+    });
 
     return {
         result: source,
@@ -46,7 +56,13 @@ export const createSource: ApiFunctionPrototype<CreateSourceParams, CreateSource
 export const getAllSources: ApiFunctionPrototype<
     GetAllSourcesParams,
     GetAllSourcesResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {
         page = 1,
         limit = 10,
@@ -54,7 +70,7 @@ export const getAllSources: ApiFunctionPrototype<
         sortOrder = 'desc',
         notInThePreparedVideos = false,
     } = GetAllSourcesParamsSchema.parse(params);
-    const query = Source.query(db);
+    const query = Source.query(db).where('organizationId', organizationId);
 
     if (sortBy) {
         query.orderBy(sortBy, sortOrder as OrderByDirection);
@@ -62,7 +78,7 @@ export const getAllSources: ApiFunctionPrototype<
 
     if (notInThePreparedVideos) {
         query.whereNotIn('id', function () {
-            this.select('sourceId').from('preparedVideos');
+            this.select('sourceId').from('preparedVideos').where('organizationId', organizationId);
         });
     }
 
@@ -85,9 +101,16 @@ export const getAllSources: ApiFunctionPrototype<
 export const getOneSource: ApiFunctionPrototype<GetOneSourceParams, GetOneSourceResponse> = async (
     params,
     db,
+    options = {},
 ) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {emptyFirebaseUrl, random, id} = params;
-    const query = Source.query(db);
+    const query = Source.query(db).where('organizationId', organizationId);
 
     if (id) {
         query.where('id', id);
@@ -103,6 +126,10 @@ export const getOneSource: ApiFunctionPrototype<GetOneSourceParams, GetOneSource
 
     const source = await query.limit(1).first();
 
+    if (id && !source) {
+        throw new ThrownError('Source not found', 404);
+    }
+
     return {
         result: source,
         code: 200,
@@ -112,13 +139,30 @@ export const getOneSource: ApiFunctionPrototype<GetOneSourceParams, GetOneSource
 export const updateSource: ApiFunctionPrototype<UpdateSourceParams, UpdateSourceResponse> = async (
     params,
     db,
+    options = {},
 ) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {id, ...updateData} = UpdateSourceParamsSchema.parse(params);
 
+    // First check if the source exists and belongs to the organization
+    const existingSource = await Source.query(db)
+        .findById(id)
+        .where('organizationId', organizationId);
+
+    if (!existingSource) {
+        throw new ThrownError('Source not found', 404);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cleanUpdateData: any = {};
 
     Object.entries(updateData).forEach(([key, val]) => {
-        if (['createdAt', 'updatedAt'].includes(key)) {
+        if (['createdAt', 'updatedAt', 'organizationId'].includes(key)) {
             return;
         }
 
@@ -136,8 +180,18 @@ export const updateSource: ApiFunctionPrototype<UpdateSourceParams, UpdateSource
 export const deleteSource: ApiFunctionPrototype<DeleteSourceParams, DeleteSourceResponse> = async (
     params,
     db,
+    options = {},
 ) => {
-    const deletedCount = await Source.query(db).deleteById(params.id);
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const deletedCount = await Source.query(db)
+        .delete()
+        .where('id', params.id)
+        .where('organizationId', organizationId);
 
     return {
         result: deletedCount,
@@ -148,8 +202,16 @@ export const deleteSource: ApiFunctionPrototype<DeleteSourceParams, DeleteSource
 export const getSourceById: ApiFunctionPrototype<
     GetSourceByIdParams,
     GetSourceByIdResponse
-> = async (params, db) => {
-    const source = await Source.query(db).findById(params.id);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const source = await Source.query(db)
+        .findById(params.id)
+        .where('organizationId', organizationId);
 
     return {
         result: source,
@@ -160,13 +222,20 @@ export const getSourceById: ApiFunctionPrototype<
 export const getSourcesStatisticsByDays: ApiFunctionPrototype<
     SourceStatisticsParams,
     SourceStatisticsResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {days} = params;
     if (!days.length) {
         return {result: {}, code: 200};
     }
     const rows = (await Source.query(db)
         .select(db.raw(`to_char("createdAt", 'YYYY-MM-DD') as day`), db.raw('count(*) as count'))
+        .where('organizationId', organizationId)
         .whereIn(db.raw(`to_char("createdAt", 'YYYY-MM-DD')`), days)
         .groupBy('day')) as unknown as Array<{day: string; count: string | number}>;
     const result: Record<string, number> = {};

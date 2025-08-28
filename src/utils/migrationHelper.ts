@@ -3,7 +3,7 @@
 import {collection, getDocs, getFirestore} from 'firebase/firestore';
 import {TransactionOrKnex} from 'objection';
 
-import User from '../types/models/User';
+import User from '../db/models/User';
 
 import {getDb} from '#src/db';
 

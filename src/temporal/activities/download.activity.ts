@@ -2,7 +2,7 @@
 import {Context} from '@temporalio/activity';
 
 import {getVideoDuration} from '#src/sections/cloud-run/components/video';
-import {ISource} from '#src/types/source';
+import {ISource} from '#src/types';
 import {DownloadVideoActivityArgs, DownloadVideoActivityResponse} from '#src/types/temporal';
 import {FetchRoutes, uploadFileFromUrl} from '#src/utils';
 import {ThrownError} from '#src/utils/error';

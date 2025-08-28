@@ -1,7 +1,13 @@
 import {z} from 'zod';
 
-import {zodOptionalBoolean, zodOptionalNumber, zodOptionalNumberArray} from './utils';
+import {
+    zodOptionalBoolean,
+    zodOptionalNumber,
+    zodOptionalNumberArray,
+    zodStringArray,
+} from './utils';
 
+import {IPreparedVideo} from '#schemas/models/preparedVideo';
 import {PreparedVideoSchema} from '#src/types/schemas/models';
 
 export const CreatePreparedVideoParamsSchema = PreparedVideoSchema.omit({id: true});
@@ -63,7 +69,7 @@ export const FindPreparedVideoDuplicatesParamsSchema = z
 
 export const PreparedVideosStatisticsParamsSchema = z
     .object({
-        days: z.array(z.string()),
+        days: zodStringArray(),
     })
     .strict();
 
@@ -76,3 +82,41 @@ export const HasPreparedVideoBeenCreatedParamsSchema = z
     .strict();
 
 export const HasPreparedVideoBeenCreatedResponseSchema = z.boolean();
+
+// types
+
+export type CreatePreparedVideoParams = Omit<IPreparedVideo, 'id'>;
+export type CreatePreparedVideoResponse = IPreparedVideo;
+
+export type GetPreparedVideoByIdParams = z.infer<typeof GetPreparedVideoByIdParamsSchema>;
+export type GetPreparedVideoByIdResponse = IPreparedVideo;
+
+export type GetAllPreparedVideosParams = z.infer<typeof GetAllPreparedVideosParamsSchema>;
+export type GetAllPreparedVideosResponse = {
+    preparedVideos: IPreparedVideo[];
+    count: number;
+};
+
+export type UpdatePreparedVideoParams = z.infer<typeof UpdatePreparedVideoParamsSchema>;
+export type UpdatePreparedVideoResponse = IPreparedVideo;
+
+export type DeletePreparedVideoParams = z.infer<typeof DeletePreparedVideoParamsSchema>;
+export type DeletePreparedVideoResponse = number;
+
+export type GetOnePreparedVideoParams = z.infer<typeof GetOnePreparedVideoParamsSchema>;
+export type GetOnePreparedVideoResponse = IPreparedVideo | undefined;
+
+export type FindPreparedVideoDuplicatesParams = z.infer<
+    typeof FindPreparedVideoDuplicatesParamsSchema
+>;
+export type FindPreparedVideoDuplicatesResponse = IPreparedVideo[];
+
+export type PreparedVideosStatisticsParams = z.infer<typeof PreparedVideosStatisticsParamsSchema>;
+export type PreparedVideosStatisticsResponse = Record<string, number>;
+
+export type HasPreparedVideoBeenCreatedParams = z.infer<
+    typeof HasPreparedVideoBeenCreatedParamsSchema
+>;
+export type HasPreparedVideoBeenCreatedResponse = z.infer<
+    typeof HasPreparedVideoBeenCreatedResponseSchema
+>;

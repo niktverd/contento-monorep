@@ -1,6 +1,6 @@
 import {continueAsNew, proxyActivities, sleep, log as workflowLog} from '@temporalio/workflow';
 
-import type {IPreparedVideo} from '../../types/preparedVideo';
+import type {IPreparedVideo} from '../../types';
 import type * as activities from '../activities';
 
 import {IAccount} from '#types';

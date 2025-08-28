@@ -66,6 +66,7 @@ const getTestConnectionConfig = () => {
 
 const connectionConfig = getConnectionConfig();
 const testConnectionConfig = getTestConnectionConfig();
+
 module.exports = {
     development: {
         client: 'pg',

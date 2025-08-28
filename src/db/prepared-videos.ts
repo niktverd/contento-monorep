@@ -1,6 +1,8 @@
+import {omit} from 'lodash';
 import {OrderByDirection} from 'objection';
 
-import {PreparedVideo} from '../types/models/PreparedVideo';
+import {PreparedVideo} from './models/PreparedVideo';
+import {assertSameOrg, scopeByOrg} from './utils';
 
 import {ApiFunctionPrototype} from '#src/types/common';
 import {
@@ -33,10 +35,41 @@ import {
 export const createPreparedVideo: ApiFunctionPrototype<
     CreatePreparedVideoParams,
     CreatePreparedVideoResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const preparedVideoPromise = await db.transaction(async (trx) => {
         const validatedParams = CreatePreparedVideoParamsSchema.parse(params);
-        const preparedVideo = await PreparedVideo.query(trx).insert(validatedParams);
+
+        // Validate that foreign keys belong to the same organization
+        if (validatedParams.accountId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'account',
+                id: validatedParams.accountId,
+            });
+        }
+
+        if (validatedParams.sourceId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'source',
+                id: validatedParams.sourceId,
+            });
+        }
+
+        if (validatedParams.scenarioId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'scenario',
+                id: validatedParams.scenarioId,
+            });
+        }
+
+        const preparedVideo = await PreparedVideo.query(trx).insert({
+            ...validatedParams,
+            organizationId,
+        });
 
         return preparedVideo;
     });
@@ -50,8 +83,15 @@ export const createPreparedVideo: ApiFunctionPrototype<
 export const getPreparedVideoById: ApiFunctionPrototype<
     GetPreparedVideoByIdParams,
     GetPreparedVideoByIdResponse
-> = async (params, db) => {
-    const preparedVideo = await PreparedVideo.query(db).findById(params.id);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const preparedVideo = await scopeByOrg(PreparedVideo.query(db), organizationId).findById(
+        params.id,
+    );
 
     if (!preparedVideo) {
         throw new ThrownError('PreparedVideo not found', 404);
@@ -66,7 +106,12 @@ export const getPreparedVideoById: ApiFunctionPrototype<
 export const getAllPreparedVideos: ApiFunctionPrototype<
     GetAllPreparedVideosParams,
     GetAllPreparedVideosResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {
         page = 1,
         limit = 10,
@@ -80,7 +125,8 @@ export const getAllPreparedVideos: ApiFunctionPrototype<
 
     if (findDuplicates) {
         // Группируем по accountId, sourceId, scenarioId и ищем группы с count > 1
-        const subquery = PreparedVideo.query(db)
+        // Включаем organizationId в группировку для изоляции по организации
+        const subquery = scopeByOrg(PreparedVideo.query(db), organizationId)
             .select('accountId', 'sourceId', 'scenarioId')
             .count('* as count')
             .groupBy('accountId', 'sourceId', 'scenarioId')
@@ -101,11 +147,13 @@ export const getAllPreparedVideos: ApiFunctionPrototype<
                     scenarioId: g.scenarioId,
                 };
             });
-            preparedVideos = await PreparedVideo.query(db).where((builder) => {
-                orConditions.forEach((cond) => {
-                    builder.orWhere(cond);
-                });
-            });
+            preparedVideos = await scopeByOrg(PreparedVideo.query(db), organizationId).where(
+                (builder) => {
+                    orConditions.forEach((cond) => {
+                        builder.orWhere(cond);
+                    });
+                },
+            );
         }
         return {
             result: {
@@ -116,7 +164,7 @@ export const getAllPreparedVideos: ApiFunctionPrototype<
         };
     }
 
-    const query = PreparedVideo.query(db);
+    const query = scopeByOrg(PreparedVideo.query(db), organizationId);
 
     if (sortBy) {
         query.orderBy(sortBy, sortOrder as OrderByDirection);
@@ -152,15 +200,49 @@ export const getAllPreparedVideos: ApiFunctionPrototype<
 export const updatePreparedVideo: ApiFunctionPrototype<
     UpdatePreparedVideoParams,
     UpdatePreparedVideoResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {id, ...updateData} = UpdatePreparedVideoParamsSchema.parse(params);
 
-    const preparedVideoPromise = await db.transaction(async (t) => {
-        const preparedVideo = await PreparedVideo.query(t).patchAndFetchById(id, updateData);
+    const preparedVideoPromise = await db.transaction(async (trx) => {
+        // Validate that foreign keys belong to the same organization if they're being updated
+        if (updateData.accountId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'account',
+                id: updateData.accountId,
+            });
+        }
 
-        if (!preparedVideo) {
+        if (updateData.sourceId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'source',
+                id: updateData.sourceId,
+            });
+        }
+
+        if (updateData.scenarioId) {
+            await assertSameOrg(trx, organizationId, {
+                entityName: 'scenario',
+                id: updateData.scenarioId,
+            });
+        }
+
+        // First, check if the record exists and belongs to our organization
+        const existingVideo = await PreparedVideo.query(trx).where({id, organizationId}).first();
+
+        if (!existingVideo) {
             throw new ThrownError('PreparedVideo not found', 404);
         }
+
+        // Update the record and return the updated version (omit organizationId to prevent mutation)
+        const preparedVideo = await PreparedVideo.query(trx).patchAndFetchById(
+            id,
+            omit(updateData, 'organizationId'),
+        );
 
         return preparedVideo;
     });
@@ -174,8 +256,17 @@ export const updatePreparedVideo: ApiFunctionPrototype<
 export const deletePreparedVideo: ApiFunctionPrototype<
     DeletePreparedVideoParams,
     DeletePreparedVideoResponse
-> = async (params, db) => {
-    const deletedCount = await PreparedVideo.query(db).deleteById(params.id);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    // Scope deletion to organization
+    const deletedCount = await PreparedVideo.query(db)
+        .where({id: params.id, organizationId})
+        .delete();
+
     return {
         result: deletedCount,
         code: 200,
@@ -185,7 +276,12 @@ export const deletePreparedVideo: ApiFunctionPrototype<
 export const getOnePreparedVideo: ApiFunctionPrototype<
     GetOnePreparedVideoParams,
     GetOnePreparedVideoResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {
         hasFirebaseUrl,
         firebaseUrl,
@@ -198,7 +294,8 @@ export const getOnePreparedVideo: ApiFunctionPrototype<
         fetchGraphScenario,
         fetchGraphSource,
     } = params;
-    const query = PreparedVideo.query(db);
+
+    const query = scopeByOrg(PreparedVideo.query(db), organizationId);
 
     if (hasFirebaseUrl) {
         query.whereNotNull('firebaseUrl');
@@ -212,7 +309,7 @@ export const getOnePreparedVideo: ApiFunctionPrototype<
         query
             .where('accountId', accountId)
             .andWhere('scenarioId', scenarioId)
-            .andWhere('scenarioId', sourceId);
+            .andWhere('sourceId', sourceId);
     } else if (accountId) {
         query.where('accountId', accountId);
     }
@@ -222,7 +319,13 @@ export const getOnePreparedVideo: ApiFunctionPrototype<
     }
 
     if (notInInstagramMediaContainers) {
-        query.whereNotIn('id', db('instagramMediaContainers').select('preparedVideoId'));
+        // Scope the subquery to the same organization to respect org boundaries
+        query.whereNotIn(
+            'id',
+            db('instagramMediaContainers')
+                .select('preparedVideoId')
+                .where('organizationId', organizationId),
+        );
     }
 
     if (fetchGraphAccount) {
@@ -248,10 +351,19 @@ export const getOnePreparedVideo: ApiFunctionPrototype<
 export const findPreparedVideoDuplicates: ApiFunctionPrototype<
     FindPreparedVideoDuplicatesParams,
     FindPreparedVideoDuplicatesResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {accountId, sourceId, scenarioId} = params;
-    // Найти все видео с такими же accountId, sourceId, scenarioId
-    const videos = await PreparedVideo.query(db).where({accountId, sourceId, scenarioId});
+    // Найти все видео с такими же accountId, sourceId, scenarioId в пределах организации
+    const videos = await scopeByOrg(PreparedVideo.query(db), organizationId).where({
+        accountId,
+        sourceId,
+        scenarioId,
+    });
 
     // Если найдено больше одной — это дубликаты
     if (videos.length > 1) {
@@ -264,15 +376,22 @@ export const findPreparedVideoDuplicates: ApiFunctionPrototype<
 export const getPreparedVideosStatisticsByDays: ApiFunctionPrototype<
     PreparedVideosStatisticsParams,
     PreparedVideosStatisticsResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {days} = params;
     if (!days.length) {
         return {result: {}, code: 200};
     }
-    const rows = (await PreparedVideo.query(db)
+
+    const rows = (await scopeByOrg(PreparedVideo.query(db), organizationId)
         .select(db.raw(`to_char("createdAt", 'YYYY-MM-DD') as day`), db.raw('count(*) as count'))
         .whereIn(db.raw(`to_char("createdAt", 'YYYY-MM-DD')`), days)
         .groupBy('day')) as unknown as Array<{day: string; count: string | number}>;
+
     const result: Record<string, number> = {};
     for (const row of rows) {
         result[row.day] = Number(row.count);
@@ -286,9 +405,9 @@ export const getPreparedVideosStatisticsByDays: ApiFunctionPrototype<
 export const hasPreparedVideoBeenCreated: ApiFunctionPrototype<
     HasPreparedVideoBeenCreatedParams,
     HasPreparedVideoBeenCreatedResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
     const {accountId, scenarioId, sourceId} = params;
-    const video = await getOnePreparedVideo({accountId, scenarioId, sourceId}, db);
+    const video = await getOnePreparedVideo({accountId, scenarioId, sourceId}, db, options);
 
     return {result: Boolean(video.result), code: video.code};
 };

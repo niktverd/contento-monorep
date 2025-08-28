@@ -11,7 +11,7 @@ module.exports = {
     moduleNameMapper: {
         '^#src/(.*)$': '<rootDir>/src/$1',
         '^#utils$': '<rootDir>/src/utils/index.ts',
-        '^#schemas/(.*)$': '<rootDir>/src/schemas/$1',
+        '^#schemas/(.*)$': '<rootDir>/src/types/schemas/$1',
         '^#types/(.*)$': '<rootDir>/src/types/$1',
         '^#config/(.*)$': '<rootDir>/src/config/$1',
         '^#config$': '<rootDir>/src/config/index.ts',
@@ -19,6 +19,7 @@ module.exports = {
         '^#tests/(.*)$': '<rootDir>/src/tests/$1',
         '^\\$(.*)$': '<rootDir>/src/sections/$1',
         '^#types$': '<rootDir>/src/types/index.ts',
+        '^#models/(.*)$': '<rootDir>/src/db/models/$1',
     },
     setupFilesAfterEnv: ['<rootDir>/src/testApi/clearDbBeforeEach.js'],
     testPathIgnorePatterns: ['/node_modules/', '/dist/'],

@@ -9,14 +9,14 @@
     "paths": {
       "#config/*": ["src/config/*"],
       "#logic": ["src/logic/index.ts"],
-      // "#sections/*": ["src/sections/*"],
       "#tests/*": ["src/tests/*"],
       "#types": ["src/types/index.ts"],
       "#utils": ["src/utils/index.ts"],
       "#schemas/*": ["src/types/schemas/*"],
-      "#models/*": ["src/types/models/*"],
+      "#models/*": ["src/db/models/*"],
       "#src/*": ["src/*"],
-      "$/*": ["src/sections/*"]
+      "$/*": ["src/sections/*"],
+      "root/*": ["./*"]
     }
   },
   "include": ["src", "app.ts", "index.ts", "src/scripts"],

@@ -20,7 +20,7 @@ import {
     // scenarioLongVideoWithInjectionsSchema,
     // scenarioShortifySchema,
     scenarioShortifyUniqueSchema,
-} from '#src/types/schemas/scenario';
+} from '#src/types/schemas';
 
 export const ScenarioMap: Record<ScenarioType, {scenario: ScenarioFunction; schema: z.ZodSchema}> =
     {

@@ -1,5 +1,5 @@
 import testApp from '../../app';
-import * as controller from '../sections/ui/controllers/instagram-locations.controller';
+import * as controller from '../sections/instagram-location/instagram-location.controller';
 
 // import './clearDbBeforeEach';
 import {
@@ -23,7 +23,6 @@ describe('instagram-locations.controller', () => {
         expect(typeof controller.createInstagramLocationPost).toBe('function');
         expect(typeof controller.deleteInstagramLocationDelete).toBe('function');
     });
-
     it('createInstagramLocationPost & getAllInstagramLocationsGet', async () => {
         const response = await createLocationHelper(undefined, testApp);
         expect(response.body).toBeDefined();

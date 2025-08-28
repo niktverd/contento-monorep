@@ -11,3 +11,5 @@ export const InstagramLocationSchema = createEntitySchema({
     lng: z.number().optional().nullable(),
     group: z.string().optional().nullable(),
 }).strict();
+
+export type IInstagramLocation = z.infer<typeof InstagramLocationSchema>;

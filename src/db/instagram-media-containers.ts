@@ -1,4 +1,7 @@
-import {InstagramMediaContainer} from '../types/models/InstagramMediaContainer';
+import {omit} from 'lodash';
+
+import {InstagramMediaContainer} from './models/InstagramMediaContainer';
+import {assertSameOrg, scopeByOrg} from './utils';
 
 import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
@@ -22,9 +25,31 @@ import {
 export const createInstagramMediaContainer: ApiFunctionPrototype<
     CreateInstagramMediaContainerParams,
     CreateInstagramMediaContainerResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    // Validate foreign keys belong to same organization
+    if (params.preparedVideoId) {
+        await assertSameOrg(db, organizationId, {
+            entityName: 'preparedVideo',
+            id: params.preparedVideoId,
+        });
+    }
+    if (params.accountId) {
+        await assertSameOrg(db, organizationId, {
+            entityName: 'account',
+            id: params.accountId,
+        });
+    }
+
     const preparedVideoPromise = await db.transaction(async (trx) => {
-        const preparedVideo = await InstagramMediaContainer.query(trx).insert(params);
+        const preparedVideo = await InstagramMediaContainer.query(trx).insert({
+            ...params,
+            organizationId,
+        });
 
         return preparedVideo;
     });
@@ -38,8 +63,15 @@ export const createInstagramMediaContainer: ApiFunctionPrototype<
 export const getInstagramMediaContainerById: ApiFunctionPrototype<
     GetInstagramMediaContainerByIdParams,
     GetInstagramMediaContainerByIdResponse
-> = async (params, db) => {
-    const preparedVideo = await InstagramMediaContainer.query(db).findById(params.id);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const query = InstagramMediaContainer.query(db);
+    scopeByOrg(query, organizationId);
+    const preparedVideo = await query.findById(params.id);
 
     if (!preparedVideo) {
         throw new ThrownError('InstagramMediaContainer not found', 404);
@@ -54,9 +86,15 @@ export const getInstagramMediaContainerById: ApiFunctionPrototype<
 export const getAllInstagramMediaContainers: ApiFunctionPrototype<
     GetAllInstagramMediaContainersParams,
     GetAllInstagramMediaContainersResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {page = 1, limit = 10, sortBy, sortOrder = 'desc'} = params;
     const query = InstagramMediaContainer.query(db);
+    scopeByOrg(query, organizationId);
 
     if (sortBy) {
         query.orderBy(sortBy, sortOrder as 'asc' | 'desc');
@@ -79,14 +117,32 @@ export const getAllInstagramMediaContainers: ApiFunctionPrototype<
 export const updateInstagramMediaContainer: ApiFunctionPrototype<
     UpdateInstagramMediaContainerParams,
     UpdateInstagramMediaContainerResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {id, ...updateData} = params;
 
+    // Validate foreign keys if being updated
+    if (updateData.preparedVideoId) {
+        await assertSameOrg(db, organizationId, {
+            entityName: 'preparedVideo',
+            id: updateData.preparedVideoId,
+        });
+    }
+    if (updateData.accountId) {
+        await assertSameOrg(db, organizationId, {
+            entityName: 'account',
+            id: updateData.accountId,
+        });
+    }
+
     const preparedVideoPromise = await db.transaction(async (t) => {
-        const preparedVideo = await InstagramMediaContainer.query(t).patchAndFetchById(
-            id,
-            updateData,
-        );
+        const query = InstagramMediaContainer.query(t);
+        scopeByOrg(query, organizationId);
+        const preparedVideo = await query.patchAndFetchById(id, omit(updateData, 'organizationId'));
 
         if (!preparedVideo) {
             throw new ThrownError('InstagramMediaContainer not found', 404);
@@ -104,8 +160,15 @@ export const updateInstagramMediaContainer: ApiFunctionPrototype<
 export const deleteInstagramMediaContainer: ApiFunctionPrototype<
     DeleteInstagramMediaContainerParams,
     DeleteInstagramMediaContainerResponse
-> = async (params, db) => {
-    const deletedCount = await InstagramMediaContainer.query(db).deleteById(params.id);
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
+    const query = InstagramMediaContainer.query(db);
+    scopeByOrg(query, organizationId);
+    const deletedCount = await query.deleteById(params.id);
 
     return {
         result: deletedCount,
@@ -116,11 +179,22 @@ export const deleteInstagramMediaContainer: ApiFunctionPrototype<
 export const getLimitedInstagramMediaContainers: ApiFunctionPrototype<
     GetLimitedInstagramMediaContainersParams,
     GetLimitedInstagramMediaContainersResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {accountId, limit = 3, notPublished, random, isBlocked = false} = params;
     const query = InstagramMediaContainer.query(db).where('isBlocked', isBlocked);
+    scopeByOrg(query, organizationId);
 
     if (accountId) {
+        // Validate accountId belongs to same organization
+        await assertSameOrg(db, organizationId, {
+            entityName: 'account',
+            id: accountId,
+        });
         query.where('accountId', accountId);
     }
 
@@ -143,15 +217,25 @@ export const getLimitedInstagramMediaContainers: ApiFunctionPrototype<
 export const getInstagramMediaContainersStatisticsByDays: ApiFunctionPrototype<
     InstagramMediaContainersStatisticsParams,
     InstagramMediaContainersStatisticsResponse
-> = async (params, db) => {
+> = async (params, db, options = {}) => {
+    const {organizationId} = options;
+    if (!organizationId) {
+        throw new ThrownError('Organization ID is required', 400);
+    }
+
     const {days} = params;
     if (!days.length) {
         return {result: {}, code: 200};
     }
-    const rows = (await InstagramMediaContainer.query(db)
+
+    const query = InstagramMediaContainer.query(db);
+    scopeByOrg(query, organizationId);
+
+    const rows = (await query
         .select(db.raw(`to_char("createdAt", 'YYYY-MM-DD') as day`), db.raw('count(*) as count'))
         .whereIn(db.raw(`to_char("createdAt", 'YYYY-MM-DD')`), days)
         .groupBy('day')) as unknown as Array<{day: string; count: string | number}>;
+
     const result: Record<string, number> = {};
     for (const row of rows) {
         result[row.day] = Number(row.count);

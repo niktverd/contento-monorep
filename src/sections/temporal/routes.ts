@@ -14,13 +14,17 @@ import {
     temporalHealthGet,
 } from './controllers/workflow.controller';
 
+import {routes} from '#src/types/routes/temporal';
+
+const {startVideoDownloadingWorkflow, workflowResult, workflowStatus, health} = routes;
+
 const router = expressRouter();
 
 // Temporal workflow routes
-router.post('/start-video-downloading-workflow', startVideoDownloadingWorkflowPost);
-router.get('/workflow-status/:workflowId', getWorkflowStatusGet);
-router.get('/workflow-result/:workflowId', getWorkflowResultGet);
-router.get('/health', temporalHealthGet);
+router.post(startVideoDownloadingWorkflow, startVideoDownloadingWorkflowPost);
+router.get(workflowStatus, getWorkflowStatusGet);
+router.get(workflowResult, getWorkflowResultGet);
+router.get(health, temporalHealthGet);
 
 // Video publishing routes
 // router.post('/video-publishing/add-video', addVideoToQueue);

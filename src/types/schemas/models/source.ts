@@ -11,4 +11,7 @@ export const SourceSchema = createEntitySchema({
     lastUsed: z.string().optional(),
     sender: z.string().optional(),
     recipient: z.string().optional(),
+    organizationId: z.number().optional(),
 }).strict();
+
+export type ISource = z.infer<typeof SourceSchema>;
