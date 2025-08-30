@@ -1,6 +1,6 @@
 /* eslint-disable complexity */
 import {randomUUID} from 'crypto';
-import {rmSync, writeFileSync} from 'fs';
+import {rmSync} from 'fs';
 
 import {ScenarioMap} from '../scenarios/ScenarioMap';
 import {getVideoDuration} from '../video';
@@ -54,10 +54,6 @@ export const runScenarioHandler: ApiFunctionPrototype<
         // Pub/Sub messages are received as base64-encoded strings
         // All validation is done in the wrapper
 
-        // Generate a unique request ID for logging
-        const reqId = randomUUID();
-        writeFileSync('reqId.log', reqId);
-
         // Decode the base64 data from the Pub/Sub message
         const decodedData = Buffer.from(data, 'base64').toString();
         const {accountId, scenarioId, sourceId} = JSON.parse(decodedData);
@@ -68,7 +64,7 @@ export const runScenarioHandler: ApiFunctionPrototype<
                 body: {
                     id: cloudRunScenarioExecution.id,
                     status: CloudRunScenarioExecutionStatusEnum.InProgress,
-                    reqId,
+                    reqId: randomUUID(),
                     accountId,
                     scenarioId,
                     sourceId,

@@ -6,7 +6,7 @@ import {z} from 'zod';
 import knexInstance from '#src/config/database';
 import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
-import {logDatabaseConnected, logDatabaseSchemaVersion, logError} from '#utils';
+import {log, logError} from '#utils';
 
 const db: Knex = knexInstance;
 
@@ -58,10 +58,10 @@ export const initializeDb = async (): Promise<Knex> => {
 
         // Log successful connection
         const {host = 'localhost', port = 5432, database = 'unknown'} = connectionOptions;
-        logDatabaseConnected(`postgresql://${host}:${port}/${database}`, database);
+        log(`postgresql://${host}:${port}/${database}`, database);
 
         // Log schema version
-        logDatabaseSchemaVersion(latestMigration);
+        log(latestMigration);
 
         return db;
     } catch (error) {

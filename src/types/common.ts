@@ -1,3 +1,5 @@
+import {AsyncLocalStorage} from 'async_hooks';
+
 import {TransactionOrKnex} from 'objection';
 
 export type IResponse<T> = Promise<{
@@ -20,3 +22,21 @@ export type ApiFunctionPrototype<T, R> = (
         organizationId?: number;
     },
 ) => IResponse<R>;
+
+/**
+ * Request context data that will be stored in AsyncLocalStorage
+ */
+export interface RequestContext {
+    requestId: string;
+    userId?: number;
+    organizationId?: number;
+    userEmail?: string;
+    timestamp: number;
+    isSuperAdmin?: boolean;
+    skipAuthentication?: boolean;
+}
+
+/**
+ * Type for the AsyncLocalStorage store
+ */
+export type RequestContextStore = AsyncLocalStorage<RequestContext>;

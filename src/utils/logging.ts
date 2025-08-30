@@ -1,6 +1,6 @@
-import {readFileSync} from 'fs';
-
 import chalk from 'chalk';
+
+import {getRequestContext} from './context';
 
 const chalkMap = [
     chalk.bgBlue,
@@ -44,15 +44,13 @@ export const log = (...messages: unknown[]) => {
         return;
     }
 
-    let reqId = '';
-    try {
-        reqId = readFileSync('reqId.log', 'utf8');
-    } catch {}
+    const context = getRequestContext();
+    const reqId = context?.requestId || 'no-context';
     const isDevelopment = process.env.APP_ENV === 'development';
     const groupLabels = getGroupLabels();
     if (isDevelopment) {
         console.group(...groupLabels);
-        console.log(reqId, ...messages);
+        console.log(`[${reqId}]`, ...messages);
         console.groupEnd();
     } else {
         console.log(JSON.stringify([`reqId_${reqId}`, ...messages, ...groupLabels]));
@@ -64,89 +62,33 @@ export const logError = (...messages: unknown[]) => {
         return;
     }
 
-    let reqId = '';
-    try {
-        reqId = readFileSync('reqId.log', 'utf8');
-    } catch {}
+    const context = getRequestContext();
+    const reqId = context?.requestId || 'no-context';
+    const userId = context?.userId;
+    const organizationId = context?.organizationId;
     const isDevelopment = process.env.APP_ENV === 'development';
     const groupLabels = getGroupLabels();
+
+    // Enhanced error logging with context information
+    const contextInfo = [];
+    if (userId) contextInfo.push(`userId:${userId}`);
+    if (organizationId) contextInfo.push(`orgId:${organizationId}`);
+    const contextString = contextInfo.length > 0 ? ` [${contextInfo.join(', ')}]` : '';
+
     if (isDevelopment) {
         console.group(chalk.bgRed('ERROR'));
         console.group(...groupLabels);
-        console.error(reqId, ...messages);
+        console.error(`[${reqId}]${contextString}`, ...messages);
         console.groupEnd();
         console.groupEnd();
     } else {
-        console.error(JSON.stringify([`reqId_${reqId}`, ...messages, ...groupLabels]));
-    }
-};
-
-// eslint-disable-next-line valid-jsdoc
-/**
- * Log database connection information
- */
-export const logDatabaseConnection = (dbUrl: string, dbName?: string) => {
-    const isDevelopment = process.env.APP_ENV === 'development';
-
-    // Extract database name and host from URL for logging (without credentials)
-    let parsedInfo = 'Unknown database';
-    try {
-        const url = new URL(dbUrl);
-        const host = url.hostname;
-        const port = url.port || '5432';
-        const database = url.pathname.slice(1); // Remove leading slash
-        parsedInfo = `${database}@${host}:${port}`;
-    } catch {
-        if (dbName) {
-            parsedInfo = dbName;
-        }
-    }
-
-    if (isDevelopment) {
-        console.log(chalk.green(`[INFO] Connecting to application database: ${parsedInfo}`));
-    } else {
-        console.log(JSON.stringify(['[INFO] Connecting to application database:', parsedInfo]));
-    }
-};
-
-// eslint-disable-next-line valid-jsdoc
-/**
- * Log successful database connection
- */
-export const logDatabaseConnected = (dbUrl: string, dbName?: string) => {
-    const isDevelopment = process.env.APP_ENV === 'development';
-
-    // Extract database and host info from URL for logging (format: database@host:port)
-    let parsedInfo = 'Unknown database';
-    try {
-        const url = new URL(dbUrl);
-        const host = url.hostname;
-        const port = url.port || '5432';
-        const database = url.pathname.slice(1); // Remove leading slash
-        parsedInfo = `${database}@${host}:${port}`;
-    } catch {
-        if (dbName) {
-            parsedInfo = dbName;
-        }
-    }
-
-    if (isDevelopment) {
-        console.log(chalk.green(`[INFO] Connected to ${parsedInfo}`));
-    } else {
-        console.log(JSON.stringify(['[INFO] Connected to', parsedInfo]));
-    }
-};
-
-// eslint-disable-next-line valid-jsdoc
-/**
- * Log database schema version after successful connection
- */
-export const logDatabaseSchemaVersion = (version: string) => {
-    const isDevelopment = process.env.APP_ENV === 'development';
-
-    if (isDevelopment) {
-        console.log(chalk.blue(`[INFO] Database schema version: ${version}`));
-    } else {
-        console.log(JSON.stringify(['[INFO] Database schema version:', version]));
+        console.error(
+            JSON.stringify([
+                `reqId_${reqId}`,
+                `context_${JSON.stringify(context)}`,
+                ...messages,
+                ...groupLabels,
+            ]),
+        );
     }
 };

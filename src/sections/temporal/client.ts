@@ -1,9 +1,9 @@
-// Temporal Client for Express Application
 import {Client, Connection, WorkflowHandle} from '@temporalio/client';
 
 import {videoDownloadingWorkflow} from '../../temporal/workflows';
 
 import {VideoDownloadingWorkflowArgs} from '#src/types/temporal';
+import {log} from '#utils';
 
 let temporalClient: Client | null = null;
 
@@ -26,7 +26,7 @@ export async function getTemporalClient(): Promise<Client> {
             namespace,
         });
 
-        console.log(`Temporal client connected to ${address}, namespace: ${namespace}`);
+        log(`Temporal client connected to ${address}, namespace: ${namespace}`);
     }
 
     return temporalClient;
@@ -50,7 +50,7 @@ export async function startVideoDownloadingWorkflow(input: VideoDownloadingWorkf
         .toString(36)
         .substr(2, 9)}`;
 
-    console.log('Starting video workflow', {
+    log('Starting video workflow', {
         workflowId,
         input,
         taskQueue,

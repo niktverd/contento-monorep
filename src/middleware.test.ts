@@ -1,7 +1,13 @@
 import {NextFunction, Request, Response} from 'express';
 
 import {TEST_USER_TOKEN_HEADER, USER_TOKEN_HEADER} from './constants';
-import {checkPermissions, isSuperAdmin, requireOrganizationHeader} from './middleware';
+import {
+    checkPermissions,
+    contextSetupMiddleware,
+    isSuperAdmin,
+    requestIdMiddleware,
+    requireOrganizationHeader,
+} from './middleware';
 
 // Mock the database and user functions
 jest.mock('./db', () => ({
@@ -16,6 +22,20 @@ jest.mock('#config/firebase', () => ({
             verifyIdToken: jest.fn(),
         }),
     },
+}));
+
+// Mock the utils module for context functions
+jest.mock('#utils', () => ({
+    getOrganizationId: jest.fn(),
+    getUserEmail: jest.fn(),
+    getUserId: jest.fn(),
+    isValidRequestId: jest.fn(),
+    logError: jest.fn(),
+    requestContextStore: {
+        run: jest.fn((_context, callback) => callback()),
+    },
+    setUserContext: jest.fn(),
+    updateRequestContext: jest.fn(),
 }));
 
 describe('Middleware Tests', () => {
@@ -354,6 +374,174 @@ describe('Middleware Tests', () => {
             expect(mockResponse.json).toHaveBeenCalledWith(
                 expect.objectContaining({error: expect.any(String)}),
             );
+            expect(mockNext).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('requestIdMiddleware', () => {
+        it('should generate a new UUID when no request ID is provided', () => {
+            mockRequest.headers = {};
+            mockResponse.setHeader = jest.fn();
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.setHeader).toHaveBeenCalledWith(
+                'x-request-id',
+                expect.stringMatching(
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+                ),
+            );
+            expect(mockResponse.locals?.requestId).toBeDefined();
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it('should use provided x-request-id header when valid', () => {
+            const validRequestId = '123e4567-e89b-12d3-a456-426614174000';
+            mockRequest.headers = {'x-request-id': validRequestId};
+            mockResponse.setHeader = jest.fn();
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.setHeader).toHaveBeenCalledWith('x-request-id', validRequestId);
+            expect(mockResponse.locals?.requestId).toBe(validRequestId);
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it('should use x-correlation-id header as fallback when x-request-id is not provided', () => {
+            const correlationId = '550e8400-e29b-41d4-a716-446655440000';
+            mockRequest.headers = {'x-correlation-id': correlationId};
+            mockResponse.setHeader = jest.fn();
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.setHeader).toHaveBeenCalledWith('x-request-id', correlationId);
+            expect(mockResponse.locals?.requestId).toBe(correlationId);
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it('should return 400 error when invalid request ID format is provided', () => {
+            const invalidRequestId = 'invalid-uuid';
+            mockRequest.headers = {'x-request-id': invalidRequestId};
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.status).toHaveBeenCalledWith(400);
+            expect(mockResponse.json).toHaveBeenCalledWith({
+                error: 'Invalid request ID format. Must be a valid UUID v4.',
+                requestId: invalidRequestId,
+            });
+            expect(mockNext).not.toHaveBeenCalled();
+        });
+
+        it('should return 400 error when invalid correlation ID format is provided', () => {
+            const invalidCorrelationId = 'not-a-uuid';
+            mockRequest.headers = {'x-correlation-id': invalidCorrelationId};
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.status).toHaveBeenCalledWith(400);
+            expect(mockResponse.json).toHaveBeenCalledWith({
+                error: 'Invalid request ID format. Must be a valid UUID v4.',
+                requestId: invalidCorrelationId,
+            });
+            expect(mockNext).not.toHaveBeenCalled();
+        });
+
+        it('should prioritize x-request-id over x-correlation-id when both are provided', () => {
+            const requestId = '123e4567-e89b-12d3-a456-426614174000';
+            const correlationId = '550e8400-e29b-41d4-a716-446655440000';
+            mockRequest.headers = {
+                'x-request-id': requestId,
+                'x-correlation-id': correlationId,
+            };
+            mockResponse.setHeader = jest.fn();
+
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.setHeader).toHaveBeenCalledWith('x-request-id', requestId);
+            expect(mockResponse.locals?.requestId).toBe(requestId);
+            expect(mockNext).toHaveBeenCalled();
+        });
+    });
+
+    describe('contextSetupMiddleware', () => {
+        it('should set up context when request ID is available', () => {
+            const mockRequestId = '123e4567-e89b-12d3-a456-426614174000';
+            mockResponse.locals = {requestId: mockRequestId};
+            mockResponse.on = jest.fn();
+
+            // Mock the requestContextStore.run method
+            const mockRun = jest.fn((context, callback) => {
+                expect(context.requestId).toBe(mockRequestId);
+                expect(context.timestamp).toBeDefined();
+                callback();
+            });
+
+            // Replace the mock for this test
+            const utils = require('#utils');
+            utils.requestContextStore.run = mockRun;
+
+            contextSetupMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockRun).toHaveBeenCalled();
+            expect(mockResponse.on).toHaveBeenCalledWith('finish', expect.any(Function));
+            expect(mockResponse.on).toHaveBeenCalledWith('close', expect.any(Function));
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it('should continue without context when no request ID is available', () => {
+            mockResponse.locals = {};
+
+            const utils = require('#utils');
+            const mockRun = jest.fn();
+            utils.requestContextStore.run = mockRun;
+
+            contextSetupMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockRun).not.toHaveBeenCalled();
+            expect(mockNext).toHaveBeenCalled();
+        });
+    });
+
+    describe('Middleware Integration Tests', () => {
+        it('should process request ID middleware before context setup middleware', () => {
+            const mockRequestId = '123e4567-e89b-12d3-a456-426614174000';
+            mockRequest.headers = {'x-request-id': mockRequestId};
+            mockResponse.setHeader = jest.fn();
+            mockResponse.on = jest.fn();
+
+            // Mock the requestContextStore.run method
+            const utils = require('#utils');
+            const mockRun = jest.fn((context, callback) => {
+                expect(context.requestId).toBe(mockRequestId);
+                callback();
+            });
+            utils.requestContextStore.run = mockRun;
+
+            // First run request ID middleware
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, () => {
+                // Then run context setup middleware
+                contextSetupMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+            });
+
+            expect(mockResponse.setHeader).toHaveBeenCalledWith('x-request-id', mockRequestId);
+            expect(mockResponse.locals?.requestId).toBe(mockRequestId);
+            expect(mockRun).toHaveBeenCalled();
+            expect(mockNext).toHaveBeenCalled();
+        });
+
+        it('should handle middleware chain with proper error handling', () => {
+            const invalidRequestId = 'invalid-uuid';
+            mockRequest.headers = {'x-request-id': invalidRequestId};
+
+            // Request ID middleware should reject invalid IDs
+            requestIdMiddleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+            expect(mockResponse.status).toHaveBeenCalledWith(400);
+            expect(mockResponse.json).toHaveBeenCalledWith({
+                error: 'Invalid request ID format. Must be a valid UUID v4.',
+                requestId: invalidRequestId,
+            });
             expect(mockNext).not.toHaveBeenCalled();
         });
     });

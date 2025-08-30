@@ -38,26 +38,24 @@
 * src/utils/migrationHelper.ts
 * src/utils/scenarios.ts
 
-## Unused dependencies (8)
+## Unused dependencies (7)
 
-| Name                   | Location           | Severity |
-| :--------------------- | :----------------- | :------- |
-| uuid                   | package.json:100:6 | error    |
-| typescript-json-schema | package.json:99:6  | error    |
-| @temporalio/testing    | package.json:74:6  | error    |
-| @temporalio/worker     | package.json:75:6  | error    |
-| formidable             | package.json:87:6  | error    |
-| sharp                  | package.json:97:6  | error    |
-| cors                   | package.json:78:6  | error    |
-| pg                     | package.json:95:6  | error    |
+| Name                   | Location          | Severity |
+| :--------------------- | :---------------- | :------- |
+| typescript-json-schema | package.json:99:6 | error    |
+| @temporalio/testing    | package.json:74:6 | error    |
+| @temporalio/worker     | package.json:75:6 | error    |
+| formidable             | package.json:87:6 | error    |
+| sharp                  | package.json:97:6 | error    |
+| cors                   | package.json:78:6 | error    |
+| pg                     | package.json:95:6 | error    |
 
-## Unused devDependencies (5)
+## Unused devDependencies (4)
 
 | Name              | Location           | Severity |
 | :---------------- | :----------------- | :------- |
 | @types/formidable | package.json:108:6 | error    |
 | @types/cors       | package.json:105:6 | error    |
-| @types/uuid       | package.json:115:6 | error    |
 | @types/pg         | package.json:113:6 | error    |
 | nanoid            | package.json:121:6 | error    |
 
@@ -124,7 +122,7 @@
 | accessTokensArray                           | src/constants.ts:43:14                                                               | error    |
 | default                                     | src/routes.ts:69:8                                                                   | error    |
 
-## Unused exported types (11)
+## Unused exported types (12)
 
 | Name                                  | Location                                                              | Severity |
 | :------------------------------------ | :-------------------------------------------------------------------- | :------- |
@@ -139,6 +137,7 @@
 | SourcesPermissions                    | src/sections/source/routes.ts:19:13                                   | error    |
 | UserPermissions                       | src/sections/users/routes.ts:24:13                                    | error    |
 | RolePermissions                       | src/sections/role/routes.ts:18:13                                     | error    |
+| RequestContextStore                   | src/types/common.ts:42:13                                             | error    |
 
 ## Unused exported enum members (12)
 

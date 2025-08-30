@@ -47,3 +47,5 @@ export const SECOND_VIDEO =
 
 export const USER_TOKEN_HEADER = 'x-user-token';
 export const TEST_USER_TOKEN_HEADER = 'x-test-user-token';
+export const REQUEST_ID_HEADER = 'x-request-id';
+export const CORRELATION_ID_HEADER = 'x-correlation-id';

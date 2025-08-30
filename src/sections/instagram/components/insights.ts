@@ -40,7 +40,7 @@ export const collectInsightsForAllAccounts: ApiFunctionPrototype<
 
                 for (const parameter of data) {
                     const {name, values} = parameter;
-                    console.log('\n\n', {name});
+                    log('Processing insights parameter:', {name});
                     if (!report[name]) {
                         report[name] = {};
                     }
