@@ -12,6 +12,7 @@ const {
     getAccountsActivity: getAccounts,
     getRandomPreparedVideForAccountActivity: getRandomPreparedVideo,
     runPublishingActivity: runPublishing,
+    getOrganizationsActivity: getOrganizations,
 } = proxyActivities<typeof activities>({
     startToCloseTimeout: '10 minutes', // Instagram container creation + publishing
     scheduleToCloseTimeout: '15 minutes',
@@ -36,26 +37,29 @@ export async function videoPublishingWorkflow(
 }
 
 export async function publishingScheduleWorkflow(): Promise<void> {
-    const accounts = await getAccounts();
+    const organizations = await getOrganizations();
+    for (const organization of organizations.organizations) {
+        const accounts = await getAccounts(organization.id);
 
-    for (const account of accounts.accounts) {
-        try {
-            const randomPreparedVideo = await getRandomPreparedVideo(
-                account.id,
-                account.organizationId,
-            );
-            if (!randomPreparedVideo) {
-                continue;
+        for (const account of accounts.accounts) {
+            try {
+                const randomPreparedVideo = await getRandomPreparedVideo(
+                    account.id,
+                    account.organizationId,
+                );
+                if (!randomPreparedVideo) {
+                    continue;
+                }
+
+                await runPublishing({
+                    preparedVideo: randomPreparedVideo,
+                    account,
+                });
+            } catch (error) {
+                workflowLog.error(
+                    error?.toString() || `Problem with publishing video account id: ${account.id}`,
+                );
             }
-
-            await runPublishing({
-                preparedVideo: randomPreparedVideo,
-                account,
-            });
-        } catch (error) {
-            workflowLog.error(
-                error?.toString() || `Problem with publishing video account id: ${account.id}`,
-            );
         }
     }
 

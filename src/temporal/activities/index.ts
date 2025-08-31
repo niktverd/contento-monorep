@@ -3,6 +3,7 @@
 // Activity exports
 export {downloadVideo} from './download.activity';
 export {getAccountsActivity} from './get-accounts.activity';
+export {getOrganizationsActivity} from './get-organizations.activity';
 export {processVideo} from './process.activity';
 export {
     createInstagramContainer,

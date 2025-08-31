@@ -1,6 +1,12 @@
 import {z} from 'zod';
 
-import {AccountSchema, PreparedVideoSchema, ScenarioSchema, SourceSchema} from './schemas/models';
+import {
+    AccountSchema,
+    OrganizationSchema,
+    PreparedVideoSchema,
+    ScenarioSchema,
+    SourceSchema,
+} from './schemas/models';
 
 export const OptionsSchema = z.object({
     organizationId: z.number(),
@@ -27,6 +33,15 @@ export const GetAccountsActivityResponseSchema = z.object({
 });
 
 export type GetAccountsActivityResponse = z.infer<typeof GetAccountsActivityResponseSchema>;
+
+export const GetOrganizationsActivityResponseSchema = z.object({
+    success: z.boolean(),
+    organizations: z.array(OrganizationSchema),
+});
+
+export type GetOrganizationsActivityResponse = z.infer<
+    typeof GetOrganizationsActivityResponseSchema
+>;
 
 export const RunProcessingActivityArgsSchema = z.object({
     source: SourceSchema,

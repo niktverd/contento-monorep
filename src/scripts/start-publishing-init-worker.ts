@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import {getTemporalClient} from '../sections/temporal/client';
 import {} from '../temporal/activities';
 import {getAccountsActivity} from '../temporal/activities/get-accounts.activity';
+import {getOrganizationsActivity} from '../temporal/activities/get-organizations.activity';
 import {getRandomPreparedVideForAccountActivity} from '../temporal/activities/instagram.activity';
 import {runPublishingActivity} from '../temporal/activities/run-publishing.activity';
 import {publishingScheduleWorkflow} from '../temporal/workflows/video-publishing.workflow';
@@ -118,6 +119,7 @@ async function createWorkerWithRetry(): Promise<Worker> {
                     getRandomPreparedVideForAccountActivity,
                     getAccountsActivity,
                     runPublishingActivity,
+                    getOrganizationsActivity,
                 },
                 maxConcurrentActivityTaskExecutions: 20, // Single long-lived workflow
                 maxConcurrentWorkflowTaskExecutions: 20,
