@@ -40,7 +40,10 @@ export async function publishingScheduleWorkflow(): Promise<void> {
 
     for (const account of accounts.accounts) {
         try {
-            const randomPreparedVideo = await getRandomPreparedVideo(account.id);
+            const randomPreparedVideo = await getRandomPreparedVideo(
+                account.id,
+                account.organizationId,
+            );
             if (!randomPreparedVideo) {
                 continue;
             }

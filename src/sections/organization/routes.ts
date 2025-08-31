@@ -8,6 +8,7 @@ import {
     getOrganizationByIdGet,
     getOrganizationsByUserUidGet,
     getOrganizationsGet,
+    getSecretForInstagramLinkingGet,
     updateOrganizationPatch,
 } from './organizations.controller';
 
@@ -23,6 +24,7 @@ const {
     addUserWithRolesToOrganization,
     deletUserFromOrganization,
     listByUid,
+    getSecretForInstagramLinking,
 } = routes;
 
 const router = expressRouter();
@@ -69,6 +71,11 @@ router.delete(
     deleteUserFromOrganizationDelete,
 );
 
+router.get(
+    getSecretForInstagramLinking,
+    [authMiddleware, checkPermissions(OrganizationPermissions.EditOrganization)],
+    getSecretForInstagramLinkingGet,
+);
 router.get(listByUid, [authMiddleware], getOrganizationsByUserUidGet);
 
 export default router;

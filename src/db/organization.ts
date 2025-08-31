@@ -19,6 +19,8 @@ import {
     GetOrganizationByIdResponse,
     GetOrganizationsByUserUidParams,
     GetOrganizationsByUserUidResponse,
+    GetSecretForInstagramLinkingParams,
+    GetSecretForInstagramLinkingResponse,
     UpdateOrganizationParams,
     UpdateOrganizationResponse,
 } from '#src/types';
@@ -168,6 +170,30 @@ export const getOrganizationsByUserUid: ApiFunctionPrototype<
     // Return the user's organizations (already deduplicated by the relationship)
     return {
         result: uniqBy(user.organizations, 'id'),
+        code: 200,
+    };
+};
+
+export const getSecretForInstagramLinking: ApiFunctionPrototype<
+    GetSecretForInstagramLinkingParams,
+    GetSecretForInstagramLinkingResponse
+> = async (params, _db, options = {}) => {
+    const organizationId = options.organizationId || params.organizationId;
+
+    if (!organizationId) {
+        throw new ThrownError('getSecretForInstagramLinking | Organization ID is required', 400);
+    }
+
+    const object = {
+        organizationId,
+        secret: 'instagram-secret',
+        date: new Date().toISOString(),
+    };
+
+    const secret = Buffer.from(JSON.stringify(object)).toString('base64');
+
+    return {
+        result: {secret},
         code: 200,
     };
 };

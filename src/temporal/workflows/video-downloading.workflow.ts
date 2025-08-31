@@ -1,7 +1,7 @@
 // Video Processing Workflow for Temporal
 import {proxyActivities, log as workflowLog} from '@temporalio/workflow';
 
-import type {VideoDownloadingWorkflowArgs} from '../../types/temporal';
+import type {OptionsActivityArgs, VideoDownloadingWorkflowArgs} from '../../types/temporal';
 import type * as activities from '../activities';
 
 // Configure activity proxies with appropriate timeouts for each operation type
@@ -24,7 +24,10 @@ const {downloadVideo, getAccountsActivity, runProcessingActivity} = proxyActivit
  * Main video downloading workflow
  * Orchestrates the complete video pipeline: Download → Process → Create Container → Publish
  */
-export async function videoDownloadingWorkflow(input: VideoDownloadingWorkflowArgs): Promise<void> {
+export async function videoDownloadingWorkflow(
+    input: VideoDownloadingWorkflowArgs,
+    options: OptionsActivityArgs,
+): Promise<void> {
     const {sourceId} = input;
 
     workflowLog.info('Starting video downloading workflow', {
@@ -35,9 +38,7 @@ export async function videoDownloadingWorkflow(input: VideoDownloadingWorkflowAr
     // Step 1: Download video (if not already available)
     workflowLog.info('Step 1: Downloading video', {sourceId});
 
-    const downloadResult = await downloadVideo({
-        sourceId,
-    });
+    const downloadResult = await downloadVideo(input, options);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const source = downloadResult.source as any;
@@ -53,7 +54,7 @@ export async function videoDownloadingWorkflow(input: VideoDownloadingWorkflowAr
         firebaseUrl: source.firebaseUrl,
     });
 
-    const accounts = await getAccountsActivity();
+    const accounts = await getAccountsActivity(options.organizationId);
 
     workflowLog.info('Step 2 completed: Accounts ready to process', {
         accounts: accounts.accounts.length,

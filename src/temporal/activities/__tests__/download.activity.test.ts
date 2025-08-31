@@ -5,12 +5,11 @@ import {downloadVideo} from '../download.activity';
 
 import {storage} from '#config/firebase';
 import {DownloadVideoActivityArgs} from '#src/types/temporal';
-import {fetchGet} from '#src/utils/fetchHelpers';
 import {log} from '#src/utils/logging';
 
 // Mock dependencies
 jest.mock('#config/firebase');
-jest.mock('#src/utils/fetchHelpers');
+jest.mock('#src/db');
 jest.mock('#src/utils/logging');
 jest.mock('firebase/storage');
 
@@ -22,6 +21,17 @@ jest.mock('@temporalio/activity', () => ({
             heartbeat: mockHeartbeat,
         }),
     },
+}));
+
+// Mock database functions
+const mockGetDb = jest.fn();
+const mockGetOneSource = jest.fn();
+const mockUpdateSource = jest.fn();
+
+jest.mock('#src/db', () => ({
+    getDb: mockGetDb,
+    getOneSource: mockGetOneSource,
+    updateSource: mockUpdateSource,
 }));
 
 describe('downloadVideo Activity', () => {
@@ -40,13 +50,19 @@ describe('downloadVideo Activity', () => {
                 url: 'https://example.com/video.mp4',
             },
         },
+        organizationId: 123,
     };
+
+    const mockDb = {};
 
     beforeEach(() => {
         jest.clearAllMocks();
 
         // Setup default mocks
-        (fetchGet as jest.Mock).mockResolvedValue(mockSource);
+        mockGetDb.mockReturnValue(mockDb);
+        mockGetOneSource.mockResolvedValue({result: mockSource});
+        mockUpdateSource.mockResolvedValue({result: mockSource});
+
         (global.fetch as jest.MockedFunction<typeof fetch>).mockResolvedValue({
             ok: true,
             arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
@@ -60,17 +76,15 @@ describe('downloadVideo Activity', () => {
 
     describe('successful download scenarios', () => {
         it('should successfully download and upload video when firebaseUrl not provided', async () => {
-            const result = await downloadVideo(mockInput);
+            const result = await downloadVideo(mockInput, {organizationId: 123});
 
             expect(result.success).toBe(true);
             expect(result.source.firebaseUrl).toBe('https://firebase.com/uploaded-video.mp4');
             expect(result.source.duration).toBeUndefined(); // Duration determined later
 
             // Verify sequence of calls
-            expect(fetchGet).toHaveBeenCalledWith({
-                route: expect.any(String),
-                query: {id: 123},
-            });
+            expect(mockGetDb).toHaveBeenCalled();
+            expect(mockGetOneSource).toHaveBeenCalledWith({id: 123}, mockDb);
             expect(global.fetch).toHaveBeenCalledWith(
                 'https://example.com/video.mp4',
                 expect.objectContaining({method: 'GET'}),
@@ -85,13 +99,13 @@ describe('downloadVideo Activity', () => {
                 firebaseUrl: 'https://firebase.com/existing-video.mp4',
             };
 
-            const result = await downloadVideo(inputWithUrl);
+            const result = await downloadVideo(inputWithUrl, {organizationId: 123});
 
             expect(result.success).toBe(true);
             expect(result.source.firebaseUrl).toBe('https://firebase.com/existing-video.mp4');
 
             // Should not fetch source or download
-            expect(fetchGet).not.toHaveBeenCalled();
+            expect(mockGetOneSource).not.toHaveBeenCalled();
             expect(global.fetch).not.toHaveBeenCalled();
         });
 
@@ -100,9 +114,9 @@ describe('downloadVideo Activity', () => {
                 ...mockSource,
                 firebaseUrl: 'https://firebase.com/source-video.mp4',
             };
-            (fetchGet as jest.Mock).mockResolvedValue(sourceWithUrl);
+            mockGetOneSource.mockResolvedValue({result: sourceWithUrl});
 
-            const result = await downloadVideo(mockInput);
+            const result = await downloadVideo(mockInput, {organizationId: 123});
 
             expect(result.success).toBe(true);
             expect(result.source.firebaseUrl).toBe('https://firebase.com/source-video.mp4');
@@ -113,19 +127,20 @@ describe('downloadVideo Activity', () => {
         });
 
         it('should send heartbeats during long operations', async () => {
-            await downloadVideo(mockInput);
+            await downloadVideo(mockInput, {organizationId: 123});
 
             expect(mockHeartbeat).toHaveBeenCalledWith('Fetching source data');
-            expect(mockHeartbeat).toHaveBeenCalledWith('Extracting video URL from source');
             expect(mockHeartbeat).toHaveBeenCalledWith('Downloading video from source URL');
-            expect(mockHeartbeat).toHaveBeenCalledWith('Processing downloaded video data');
-            expect(mockHeartbeat).toHaveBeenCalledWith('Uploading video to Firebase Storage');
+            expect(mockHeartbeat).toHaveBeenCalledWith(
+                'Video has been uploaded to Firebase Storage.',
+            );
+            expect(mockHeartbeat).toHaveBeenCalledWith('Duration of video is gained.');
         });
     });
 
     // describe('error handling scenarios', () => {
     //     it('should handle source not found', async () => {
-    //         (fetchGet as jest.Mock).mockResolvedValue(null);
+    //         mockGetOneSource.mockResolvedValue({result: null});
 
     //         const result = await downloadVideo(mockInput);
 
@@ -138,7 +153,7 @@ describe('downloadVideo Activity', () => {
     //             ...mockSource,
     //             sources: {},
     //         };
-    //         (fetchGet as jest.Mock).mockResolvedValue(sourceWithoutUrl);
+    //         mockGetOneSource.mockResolvedValue({result: sourceWithoutUrl});
 
     //         const result = await downloadVideo(mockInput);
 
@@ -188,7 +203,7 @@ describe('downloadVideo Activity', () => {
                 headers: new Headers({}),
             } as Response);
 
-            const result = await downloadVideo(mockInput);
+            const result = await downloadVideo(mockInput, {organizationId: 123});
 
             expect(result.success).toBe(true);
             expect(uploadBytes).toHaveBeenCalledWith(
@@ -199,7 +214,7 @@ describe('downloadVideo Activity', () => {
         });
 
         it('should generate unique filename for upload', async () => {
-            await downloadVideo(mockInput);
+            await downloadVideo(mockInput, {organizationId: 123});
 
             expect(ref).toHaveBeenCalledWith(
                 storage,
@@ -210,7 +225,7 @@ describe('downloadVideo Activity', () => {
 
     describe('logging verification', () => {
         it('should log key operations', async () => {
-            await downloadVideo(mockInput);
+            await downloadVideo(mockInput, {organizationId: 123});
 
             expect(log).toHaveBeenCalledWith('Starting downloadVideo activity', {
                 sourceId: 123,
@@ -231,9 +246,9 @@ describe('downloadVideo Activity', () => {
         });
 
         it('should log errors appropriately', async () => {
-            (fetchGet as jest.Mock).mockResolvedValue(null);
+            mockGetOneSource.mockResolvedValue({result: null});
 
-            await downloadVideo(mockInput);
+            await downloadVideo(mockInput, {organizationId: 123});
 
             expect(log).toHaveBeenCalledWith(
                 'Error in downloadVideo activity',

@@ -98,9 +98,6 @@ export type AccountMediaContainerV3 = {
     preparedVideoId: string;
 };
 
-// Export RequestContext from common types
-export type {RequestContext} from './common';
-
 export * from './schemas';
 export * from './enums';
 export * from './temporal';

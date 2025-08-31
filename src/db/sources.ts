@@ -38,7 +38,7 @@ export const createSource: ApiFunctionPrototype<CreateSourceParams, CreateSource
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('createSource | Organization ID is required', 400);
     }
 
     const validatedParams = CreateSourceParamsSchema.parse(params);
@@ -106,7 +106,7 @@ export const getOneSource: ApiFunctionPrototype<GetOneSourceParams, GetOneSource
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getOneSource | Organization ID is required', 400);
     }
 
     const {emptyFirebaseUrl, random, id} = params;
@@ -144,7 +144,7 @@ export const updateSource: ApiFunctionPrototype<UpdateSourceParams, UpdateSource
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('updateSource | Organization ID is required', 400);
     }
 
     const {id, ...updateData} = UpdateSourceParamsSchema.parse(params);
@@ -185,7 +185,7 @@ export const deleteSource: ApiFunctionPrototype<DeleteSourceParams, DeleteSource
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getSourceById | Organization ID is required', 400);
     }
 
     const deletedCount = await Source.query(db)
@@ -206,7 +206,7 @@ export const getSourceById: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getSourcesStatisticsByDays | Organization ID is required', 400);
     }
 
     const source = await Source.query(db)
@@ -226,7 +226,7 @@ export const getSourcesStatisticsByDays: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getSourcesStatisticsByDays | Organization ID is required', 400);
     }
 
     const {days} = params;

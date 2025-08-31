@@ -3,14 +3,15 @@ import {rmSync} from 'fs';
 
 import {Context} from '@temporalio/activity';
 
+import {createPreparedVideo} from '#src/db/prepared-videos';
+import {getDb} from '#src/db/utils';
 import {ScenarioMap} from '#src/sections/cloud-run/components/scenarios/ScenarioMap';
 import {getVideoDuration} from '#src/sections/cloud-run/components/video';
 import {IScenario} from '#src/types';
 import {ScenarioType} from '#src/types/enums';
 import {ProcessVideoActivityArgs, ProcessVideoActivityResponse} from '#src/types/temporal';
-import {FetchRoutes, getWorkingDirectoryForVideo, uploadFileToServer} from '#src/utils';
+import {getWorkingDirectoryForVideo, uploadFileToServer} from '#src/utils';
 import {NotRetryableError} from '#src/utils/error';
-import {fetchPost} from '#src/utils/fetchHelpers';
 import {log} from '#src/utils/logging';
 
 // eslint-disable-next-line valid-jsdoc
@@ -21,14 +22,7 @@ import {log} from '#src/utils/logging';
 export async function processVideo(
     input: ProcessVideoActivityArgs,
 ): Promise<ProcessVideoActivityResponse> {
-    const {source, account, scenario} = input as {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        source: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        account: any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        scenario: any;
-    };
+    const {source, account, scenario} = input;
 
     log('Starting processVideo activity', {
         scenarioId: scenario.id,
@@ -149,16 +143,18 @@ export async function processVideo(
     Context.current().heartbeat('Saving processed video to database');
 
     // Save prepared video to database
-    const savedPreparedVideo = await fetchPost({
-        route: FetchRoutes.createPreparedVideo,
-        body: {
+    const db = getDb();
+    const savedPreparedVideo = await createPreparedVideo(
+        {
             firebaseUrl: processedUrl,
             scenarioId: scenario.id,
             sourceId: source.id,
             accountId: account.id,
             duration,
         },
-    });
+        db,
+        {organizationId: source.organizationId},
+    );
 
     log('Processed video saved to database', {savedPreparedVideo});
 

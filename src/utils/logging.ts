@@ -88,6 +88,7 @@ export const logError = (...messages: unknown[]) => {
                 `context_${JSON.stringify(context)}`,
                 ...messages,
                 ...groupLabels,
+                groupLabels.join(' > '),
             ]),
         );
     }

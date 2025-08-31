@@ -219,6 +219,7 @@ export const initiateRecordV3 = (
     bodyJSONString: SourceV3['bodyJSONString'],
     sender: SourceV3['sender'],
     recipient: SourceV3['recipient'],
+    organizationId: number,
 ): CreateSourceParams => {
     return {
         firebaseUrl: '',
@@ -228,6 +229,7 @@ export const initiateRecordV3 = (
         lastUsed: new Date('1970-01-01').toISOString(),
         sender,
         recipient,
+        organizationId,
     };
 };
 

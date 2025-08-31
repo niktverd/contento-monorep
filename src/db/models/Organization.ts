@@ -1,5 +1,6 @@
 import {Model} from 'objection';
 
+import {OrganizationSender} from './OrganizationSenders';
 import User from './User';
 
 import {IOrganization, IUser} from '#types';
@@ -32,6 +33,14 @@ export class Organization extends Model implements IOrganization {
                         to: 'userOrganizationRoles.userId',
                     },
                     to: 'users.id',
+                },
+            },
+            organizationSenders: {
+                relation: Model.HasManyRelation,
+                modelClass: OrganizationSender,
+                join: {
+                    from: 'organizations.id',
+                    to: 'organizationSenders.organizationId',
                 },
             },
         };

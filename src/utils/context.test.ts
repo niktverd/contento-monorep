@@ -11,7 +11,7 @@ import {
     updateRequestContext,
 } from './context';
 
-import {RequestContext} from '#types';
+import {RequestContext} from '#src/types/common';
 
 describe('AsyncLocalStorage Context Management', () => {
     beforeEach(() => {

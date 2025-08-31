@@ -9,6 +9,15 @@ alwaysApply: false
 
 To guide an AI assistant in creating a detailed, step-by-step task list in Markdown format based on an existing Product Requirements Document (PRD). The task list should guide a developer through implementation.
 
+## Core Principle: SIMPLEST SOLUTION
+
+**CRITICAL: Generate tasks that implement the most direct, simplest solution with minimal code changes.**
+- Focus ONLY on what the PRD explicitly requires
+- Avoid tasks that add unnecessary features or complexity
+- Prefer tasks that modify existing code minimally
+- Each task should be the smallest possible change needed
+- The solution should be complete but minimal - nothing more than what's needed
+
 ## Directory Structure
 
 PRD and task files are organized as follows:
@@ -54,6 +63,7 @@ The generated task list _must_ follow this structure:
 
 - Unit tests should typically be placed alongside the code files they are testing (e.g., `MyComponent.tsx` and `MyComponent.test.tsx` in the same directory).
 - Use `npx jest [optional/path/to/test/file]` to run tests. Running without a path executes all tests found by the Jest configuration.
+- **REMEMBER: Keep tasks focused on minimal, direct implementation. Avoid scope creep and unnecessary complexity.**
 
 ## Tasks
 

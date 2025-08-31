@@ -14,13 +14,15 @@ type AuthentificatedUser = {
     id: number;
 };
 
+export type ActionsOptions = {
+    user?: AuthentificatedUser;
+    organizationId?: number;
+};
+
 export type ApiFunctionPrototype<T, R> = (
     args: T,
     trx: TransactionOrKnex,
-    options?: {
-        user?: AuthentificatedUser;
-        organizationId?: number;
-    },
+    options?: ActionsOptions,
 ) => IResponse<R>;
 
 /**

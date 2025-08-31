@@ -8,6 +8,7 @@ import instagramLocationRoutes from './sections/instagram-location/routes';
 import instagramMediaContainerRoutes from './sections/instagram-media-container/routes';
 import instagramRoutes from './sections/instagram/routes';
 import organizationRoutes from './sections/organization/routes';
+import organizationSenderRoutes from './sections/organizationSender/routes';
 import preparedVideoRoutes from './sections/prepared-video/routes';
 import roleRoutes from './sections/role/routes';
 import scenarioRoutes from './sections/scenario/routes';
@@ -21,6 +22,7 @@ import {rootName as cloudRunScenarioExecutionRootName} from './types/routes/clou
 import {rootName as instagramLocationRootName} from './types/routes/instagramLocation';
 import {rootName as instagramMediaContainerRootName} from './types/routes/instagramMediaContainer';
 import {rootName as organizationRootName} from './types/routes/organization';
+import {rootName as organizationSenderRootName} from './types/routes/organizationSender';
 import {rootName as preparedVideoRootName} from './types/routes/preparedVideo';
 import {rootName as roleRootName} from './types/routes/role';
 import {rootName as scenarioRootName} from './types/routes/scenario';
@@ -40,6 +42,7 @@ router.use('/', choreRoutes);
 
 // Super admin only routes (no organization header required)
 router.use(organizationRootName, organizationRoutes);
+router.use(organizationSenderRootName, organizationSenderRoutes);
 router.use(roleRootName, roleRoutes);
 router.use(userRootName, userRoutes);
 

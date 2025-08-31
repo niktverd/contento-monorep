@@ -11,6 +11,9 @@ import {
     GetAllOrganizationsParamsSchema,
     GetOrganizationByIdParamsSchema,
     GetOrganizationsByUserUidParamsSchema,
+    GetSecretForInstagramLinkingParams,
+    GetSecretForInstagramLinkingParamsSchema,
+    GetSecretForInstagramLinkingResponse,
     UpdateOrganizationParamsSchema,
 } from '../../types/schemas/handlers/organization';
 
@@ -22,6 +25,7 @@ import {
     getAllOrganizations,
     getOrganizationById,
     getOrganizationsByUserUid,
+    getSecretForInstagramLinking,
     updateOrganization,
 } from '#src/db/organization';
 import {
@@ -79,3 +83,7 @@ export const deleteUserFromOrganizationDelete = wrapper<
     DeleteUserFromOrganizationParams,
     DeleteUserFromOrganizationResponse
 >(deleteUserFromOrganization, DeleteUserFromOrganizationParamsSchema, 'DELETE');
+export const getSecretForInstagramLinkingGet = wrapper<
+    GetSecretForInstagramLinkingParams,
+    GetSecretForInstagramLinkingResponse
+>(getSecretForInstagramLinking, GetSecretForInstagramLinkingParamsSchema, 'GET');

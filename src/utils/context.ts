@@ -1,6 +1,6 @@
 import {AsyncLocalStorage} from 'async_hooks';
 
-import {RequestContext} from '#types';
+import {RequestContext} from '#src/types/common';
 
 /**
  * Global AsyncLocalStorage instance for storing request context

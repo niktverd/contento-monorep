@@ -30,9 +30,14 @@ export const startVideoDownloadingWorkflowHandler: ApiFunctionPrototype<
         log('Starting video workflow', {sourceId});
 
         // Start workflow
-        const workflowResult = await startVideoDownloadingWorkflow({
-            sourceId,
-        });
+        const workflowResult = await startVideoDownloadingWorkflow(
+            {
+                sourceId,
+            },
+            {
+                organizationId: 1, // Default organization ID for testing
+            },
+        );
 
         log('Video workflow started successfully', {
             workflowId: workflowResult.workflowId,

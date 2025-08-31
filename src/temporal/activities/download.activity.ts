@@ -1,12 +1,12 @@
 // Download Video Activity for Temporal Workflow
 import {Context} from '@temporalio/activity';
 
+import {getDb, getOneSource, updateSource} from '#src/db';
 import {getVideoDuration} from '#src/sections/cloud-run/components/video';
-import {ISource} from '#src/types';
+import type {ActionsOptions} from '#src/types/common';
 import {DownloadVideoActivityArgs, DownloadVideoActivityResponse} from '#src/types/temporal';
-import {FetchRoutes, uploadFileFromUrl} from '#src/utils';
+import {uploadFileFromUrl} from '#src/utils';
 import {ThrownError} from '#src/utils/error';
-import {fetchGet, fetchPatch} from '#src/utils/fetchHelpers';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -15,15 +15,15 @@ import {fetchGet, fetchPatch} from '#src/utils/fetchHelpers';
  */
 export async function downloadVideo(
     input: DownloadVideoActivityArgs,
+    options: ActionsOptions,
 ): Promise<DownloadVideoActivityResponse> {
     const {sourceId} = input;
+    const {organizationId} = options;
 
     Context.current().heartbeat('Fetching source data');
 
-    const source = await fetchGet<ISource>({
-        route: FetchRoutes.getOneSource,
-        query: {id: sourceId},
-    });
+    const db = getDb();
+    const {result: source} = await getOneSource({id: sourceId}, db, {organizationId});
 
     if (!source) {
         throw new ThrownError(`Source with id ${sourceId} not found`, 404);
@@ -52,14 +52,15 @@ export async function downloadVideo(
     const duration = await getVideoDuration(downloadURL);
     Context.current().heartbeat('Duration of video is gained.');
 
-    const updatedSource = await fetchPatch({
-        route: FetchRoutes.updateOneSource,
-        body: {
+    const {result: updatedSource} = await updateSource(
+        {
             id: sourceId,
             firebaseUrl: downloadURL,
             duration,
         },
-    });
+        db,
+        {organizationId},
+    );
 
     return {
         success: true,

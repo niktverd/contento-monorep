@@ -72,7 +72,7 @@ export const getScenarioById: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getScenarioBySlug | Organization ID is required', 400);
     }
 
     const scenario = await Scenario.query(db)
@@ -97,7 +97,7 @@ export const getScenarioBySlug: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAllScenarios | Organization ID is required', 400);
     }
 
     const scenario = await Scenario.query(db)
@@ -123,7 +123,7 @@ export const getAllScenarios: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('updateScenario | Organization ID is required', 400);
     }
 
     const scenarios = await Scenario.query(db)
@@ -143,7 +143,7 @@ export const updateScenario: ApiFunctionPrototype<
     const {id, instagramLocations, ...updateData} = UpdateScenarioParamsSchema.parse(params);
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('deleteScenario | Organization ID is required', 400);
     }
 
     // Create a clean update object without undefined/null values that might cause type issues
@@ -202,7 +202,7 @@ export const deleteScenario: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('deleteScenario | Organization ID is required', 400);
     }
 
     // First check if scenario exists and belongs to organization

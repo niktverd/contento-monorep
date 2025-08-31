@@ -2,21 +2,27 @@
 import {Context} from '@temporalio/activity';
 
 import {
+    createInstagramMediaContainer,
+    getAccountById,
+    getDb,
+    getOnePreparedVideo,
+    getScenarioById,
+    updateInstagramMediaContainer,
+} from '#src/db';
+import {
     canInstagramPostBePublished,
     createInstagramPostContainer,
     publishInstagramPostContainer,
 } from '#src/sections/instagram/components/instagram';
-import {IPreparedVideo, InstagramLocationSource} from '#src/types';
-import {IAccount, IScenario} from '#src/types/';
+import {InstagramLocationSource} from '#src/types';
 import {
     CreateInstagramContainerInput,
     CreateInstagramContainerResult,
     PublishInstagramPostInput,
     PublishInstagramPostResult,
 } from '#src/types/temporal';
-import {FetchRoutes, delay, getRandomElementOfArray, prepareCaption} from '#src/utils';
+import {delay, getRandomElementOfArray, prepareCaption} from '#src/utils';
 import {NotRetryableError, ThrownError} from '#src/utils/error';
-import {fetchGet, fetchPatch, fetchPost} from '#src/utils/fetchHelpers';
 import {log} from '#src/utils/logging';
 
 // eslint-disable-next-line valid-jsdoc
@@ -46,15 +52,10 @@ export async function createInstagramContainer(
         Context.current().heartbeat('Fetching account and scenario data');
 
         // Fetch account and scenario data
-        const [account, scenario] = await Promise.all([
-            fetchGet<IAccount>({
-                route: FetchRoutes.getAccountById,
-                query: {id: accountId},
-            }),
-            fetchGet<IScenario>({
-                route: FetchRoutes.getScenario,
-                query: {id: scenarioId},
-            }),
+        const db = getDb();
+        const [{result: account}, {result: scenario}] = await Promise.all([
+            getAccountById({id: accountId}, db, {organizationId: preparedVideo.organizationId}),
+            getScenarioById({id: scenarioId}, db, {organizationId: preparedVideo.organizationId}),
         ]);
 
         if (!account) {
@@ -119,18 +120,19 @@ export async function createInstagramContainer(
         Context.current().heartbeat('Persisting container info to database');
 
         // Persist container data to database
-        const savedContainer = await fetchPost({
-            route: FetchRoutes.createInstagramMediaContainer,
-            body: {
+        const savedContainer = await createInstagramMediaContainer(
+            {
                 accountId: account.id,
                 preparedVideoId: preparedVideo.id,
                 containerId: result.mediaContainerId,
                 caption,
                 location: randomLocation,
             },
-        });
+            db,
+            {organizationId: account.organizationId},
+        );
 
-        const instagramMediaContainerId = savedContainer?.result?.id ?? savedContainer?.id;
+        const instagramMediaContainerId = savedContainer?.result?.id;
 
         log('Container creation completed', {
             mediaContainerId: result.mediaContainerId,
@@ -177,6 +179,7 @@ export async function publishInstagramPost(
     input: PublishInstagramPostInput,
 ): Promise<PublishInstagramPostResult> {
     const {mediaContainerId, account, instagramMediaContainerId} = input;
+    const db = getDb();
 
     try {
         log('Starting publishInstagramPost activity', {
@@ -263,15 +266,16 @@ export async function publishInstagramPost(
         // Update DB record to mark as published
         if (instagramMediaContainerId) {
             try {
-                await fetchPatch({
-                    route: FetchRoutes.updateInstagramMediaContainer,
-                    body: {
+                await updateInstagramMediaContainer(
+                    {
                         id: instagramMediaContainerId,
                         mediaId: publishResponse.postId,
                         isPublished: true,
                         lastCheckedIGStatus: 'FINISHED',
                     },
-                });
+                    db,
+                    {organizationId: account.organizationId},
+                );
             } catch (dbUpdateError) {
                 log('Failed to update instagram media container record', {
                     error: dbUpdateError,
@@ -305,9 +309,14 @@ export async function publishInstagramPost(
     }
 }
 
-export const getRandomPreparedVideForAccountActivity = async (accountId: number) => {
-    return await fetchGet<IPreparedVideo>({
-        route: FetchRoutes.getOnePreparedVideo,
-        query: {accountId, random: true},
+export const getRandomPreparedVideForAccountActivity = async (
+    accountId: number,
+    organizationId: number,
+) => {
+    const db = getDb();
+    const {result} = await getOnePreparedVideo({accountId, random: true}, db, {
+        organizationId,
     });
+
+    return result;
 };

@@ -29,7 +29,7 @@ export const createAccount: ApiFunctionPrototype<
     const {availableScenarios, instagramLocations, ...accountParams} = params;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('createAccount | Organization ID is required', 400);
     }
 
     const accountPromise = await db.transaction(async (trx) => {
@@ -84,7 +84,7 @@ export const getAccountById: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAccountById | Organization ID is required', 400);
     }
 
     const account = await Account.query(db)
@@ -110,7 +110,7 @@ export const getAccountBySlug: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAccountBySlug | Organization ID is required', 400);
     }
 
     const account = await Account.query(db)
@@ -137,7 +137,7 @@ export const getAllAccounts: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAllAccounts | Organization ID is required', 400);
     }
 
     const {onlyEnabled = false} = params;
@@ -166,7 +166,7 @@ export const updateAccount: ApiFunctionPrototype<
     const {id, availableScenarios, instagramLocations, ...updateData} = params;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('updateAccount | Organization ID is required', 400);
     }
 
     const accountPromise = await db.transaction(async (t) => {
@@ -244,7 +244,7 @@ export const deleteAccount: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('deleteAccount | Organization ID is required', 400);
     }
 
     // Delete with org-scoped constraint

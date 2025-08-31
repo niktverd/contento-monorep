@@ -2,6 +2,10 @@ import {z} from 'zod';
 
 import {AccountSchema, PreparedVideoSchema, ScenarioSchema, SourceSchema} from './schemas/models';
 
+export const OptionsSchema = z.object({
+    organizationId: z.number(),
+});
+
 // Activities
 export const DownloadVideoActivityArgsSchema = z.object({
     sourceId: z.number(),
@@ -11,6 +15,8 @@ export const DownloadVideoActivityResponseSchema = z.object({
     success: z.boolean(),
     source: SourceSchema,
 });
+
+export type OptionsActivityArgs = z.infer<typeof OptionsSchema>;
 
 export type DownloadVideoActivityArgs = z.infer<typeof DownloadVideoActivityArgsSchema>;
 export type DownloadVideoActivityResponse = z.infer<typeof DownloadVideoActivityResponseSchema>;

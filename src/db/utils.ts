@@ -150,6 +150,8 @@ export const wrapper = <RequestArgs, ResponseArgs>(
                 reqMethod: req.method,
                 reqQuery: req.query,
                 reqBody: req.body,
+                functionName: (error as ThrownError)?.name,
+                errorCode: (error as ThrownError)?.code,
             });
             if (error instanceof ThrownError) {
                 res.status(error.code).json({error: error.message});

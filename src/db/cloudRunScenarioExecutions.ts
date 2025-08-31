@@ -19,7 +19,7 @@ export const createCloudRunScenarioExecution: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('createCloudRunScenarioExecution | Organization ID is required', 400);
     }
 
     const created = await CloudRunScenarioExecution.query(db).insert({
@@ -39,7 +39,7 @@ export const getAllCloudRunScenarioExecution: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAllCloudRunScenarioExecution | Organization ID is required', 400);
     }
 
     const {
@@ -103,7 +103,10 @@ export const updateCloudRunScenarioExecutionStatus: ApiFunctionPrototype<
     const {organizationId} = options;
 
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError(
+            'updateCloudRunScenarioExecutionStatus | Organization ID is required',
+            400,
+        );
     }
 
     const updated = await CloudRunScenarioExecution.query(db)

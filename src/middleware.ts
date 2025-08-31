@@ -10,7 +10,7 @@ import {
 import {getDb, getOrCreateUser} from './db';
 
 import {admin} from '#config/firebase';
-import {RequestContext} from '#types';
+import {RequestContext} from '#src/types/common';
 import {
     getOrganizationId,
     getRequestContext,
@@ -410,7 +410,7 @@ export const checkPermissions = (requiredPermission: string) => {
             next();
             return;
         } catch (error) {
-            console.error('Permission check error:', error);
+            logError('Permission check error:', error);
             res.status(500).json({error: 'Internal server error'});
             return;
         }

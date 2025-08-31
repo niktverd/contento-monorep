@@ -28,7 +28,7 @@ export const createInstagramMediaContainer: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('createInstagramMediaContainer | Organization ID is required', 400);
     }
 
     // Validate foreign keys belong to same organization
@@ -66,7 +66,7 @@ export const getInstagramMediaContainerById: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getInstagramMediaContainerById | Organization ID is required', 400);
     }
 
     const query = InstagramMediaContainer.query(db);
@@ -89,7 +89,7 @@ export const getAllInstagramMediaContainers: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAllInstagramMediaContainers | Organization ID is required', 400);
     }
 
     const {page = 1, limit = 10, sortBy, sortOrder = 'desc'} = params;
@@ -120,7 +120,7 @@ export const updateInstagramMediaContainer: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('updateInstagramMediaContainer | Organization ID is required', 400);
     }
 
     const {id, ...updateData} = params;
@@ -163,7 +163,7 @@ export const deleteInstagramMediaContainer: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('deleteInstagramMediaContainer | Organization ID is required', 400);
     }
 
     const query = InstagramMediaContainer.query(db);
@@ -182,7 +182,10 @@ export const getLimitedInstagramMediaContainers: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError(
+            'getLimitedInstagramMediaContainers | Organization ID is required',
+            400,
+        );
     }
 
     const {accountId, limit = 3, notPublished, random, isBlocked = false} = params;
@@ -220,7 +223,10 @@ export const getInstagramMediaContainersStatisticsByDays: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError(
+            'getInstagramMediaContainersStatisticsByDays | Organization ID is required',
+            400,
+        );
     }
 
     const {days} = params;

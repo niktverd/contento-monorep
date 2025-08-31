@@ -17,7 +17,9 @@ async function testWorkflow() {
         console.log('📋 Starting workflow with input:', input);
 
         // Start workflow
-        const {workflowId, runId} = await startVideoDownloadingWorkflow(input);
+        const {workflowId, runId} = await startVideoDownloadingWorkflow(input, {
+            organizationId: 123,
+        });
         console.log(`🚀 Workflow started: ${workflowId} (run: ${runId})`);
 
         // Check status

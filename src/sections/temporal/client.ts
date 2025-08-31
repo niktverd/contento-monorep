@@ -2,7 +2,7 @@ import {Client, Connection, WorkflowHandle} from '@temporalio/client';
 
 import {videoDownloadingWorkflow} from '../../temporal/workflows';
 
-import {VideoDownloadingWorkflowArgs} from '#src/types/temporal';
+import {OptionsActivityArgs, VideoDownloadingWorkflowArgs} from '#src/types/temporal';
 import {log} from '#utils';
 
 let temporalClient: Client | null = null;
@@ -37,7 +37,10 @@ export async function getTemporalClient(): Promise<Client> {
  * Start video processing workflow
  * Returns workflow handle for monitoring and results
  */
-export async function startVideoDownloadingWorkflow(input: VideoDownloadingWorkflowArgs): Promise<{
+export async function startVideoDownloadingWorkflow(
+    input: VideoDownloadingWorkflowArgs,
+    options: OptionsActivityArgs,
+): Promise<{
     workflowId: string;
     runId: string;
     handle: WorkflowHandle;
@@ -57,7 +60,7 @@ export async function startVideoDownloadingWorkflow(input: VideoDownloadingWorkf
     });
 
     const handle = await client.workflow.start(videoDownloadingWorkflow, {
-        args: [input],
+        args: [input, options],
         taskQueue,
         workflowId,
         workflowExecutionTimeout: '3 minutes', // Total timeout for entire workflow

@@ -38,7 +38,7 @@ export const createPreparedVideo: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('createPreparedVideo | Organization ID is required', 400);
     }
 
     const preparedVideoPromise = await db.transaction(async (trx) => {
@@ -86,7 +86,7 @@ export const getPreparedVideoById: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getPreparedVideoById | Organization ID is required', 400);
     }
 
     const preparedVideo = await scopeByOrg(PreparedVideo.query(db), organizationId).findById(
@@ -109,7 +109,7 @@ export const getAllPreparedVideos: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getAllPreparedVideos | Organization ID is required', 400);
     }
 
     const {
@@ -203,7 +203,7 @@ export const updatePreparedVideo: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('updatePreparedVideo | Organization ID is required', 400);
     }
 
     const {id, ...updateData} = UpdatePreparedVideoParamsSchema.parse(params);
@@ -259,7 +259,7 @@ export const deletePreparedVideo: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('deletePreparedVideo | Organization ID is required', 400);
     }
 
     // Scope deletion to organization
@@ -279,7 +279,7 @@ export const getOnePreparedVideo: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('getOnePreparedVideo | Organization ID is required', 400);
     }
 
     const {
@@ -354,7 +354,7 @@ export const findPreparedVideoDuplicates: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError('findPreparedVideoDuplicates | Organization ID is required', 400);
     }
 
     const {accountId, sourceId, scenarioId} = params;
@@ -379,7 +379,10 @@ export const getPreparedVideosStatisticsByDays: ApiFunctionPrototype<
 > = async (params, db, options = {}) => {
     const {organizationId} = options;
     if (!organizationId) {
-        throw new ThrownError('Organization ID is required', 400);
+        throw new ThrownError(
+            'getPreparedVideosStatisticsByDays | Organization ID is required',
+            400,
+        );
     }
 
     const {days} = params;

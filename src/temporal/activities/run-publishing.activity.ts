@@ -2,7 +2,6 @@ import {videoPublishingWorkflow} from '../workflows';
 
 import {getTemporalClient} from '#src/sections/temporal/client';
 import {RunPublishingActivityArgs, RunPublishingActivityResponse} from '#src/types/temporal';
-import {IAccount, IPreparedVideo} from '#types';
 import {log} from '#utils';
 
 // eslint-disable-next-line valid-jsdoc
@@ -15,10 +14,7 @@ export async function runPublishingActivity(
     const client = await getTemporalClient();
     const taskQueue = 'process-video-publishing';
 
-    const {preparedVideo, account} = input as {
-        preparedVideo: IPreparedVideo;
-        account: IAccount;
-    };
+    const {preparedVideo, account} = input;
 
     // Generate unique workflow ID
     const workflowId = `video-publishing-exec-${preparedVideo.id}-${Date.now()}-${Math.random()
