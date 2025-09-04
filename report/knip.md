@@ -1,11 +1,12 @@
 # Knip report
 
-## Unused files (35)
+## Unused files (37)
 
 * src/db/scripts/migrateToPostgres.ts
 * src/scripts/e2e-deploy-test.ts
 * src/scripts/full-deployment-test.ts
 * src/scripts/load-test-temporal.ts
+* src/scripts/monitor-temporal-upgrade.ts
 * src/scripts/run-migrations.ts
 * src/scripts/start-downloading-worker.ts
 * src/scripts/start-processing-worker.ts
@@ -13,6 +14,7 @@
 * src/scripts/start-publishing-init-worker.ts
 * src/scripts/start-worker.ts
 * src/scripts/test-workflow.ts
+* src/scripts/validate-temporal-upgrade.ts
 * src/scripts/verify-communication.ts
 * src/scripts/verify-db-isolation.ts
 * src/sections/chore/components/preprocess-video.ts
@@ -38,13 +40,11 @@
 * src/utils/migrationHelper.ts
 * src/utils/scenarios.ts
 
-## Unused dependencies (7)
+## Unused dependencies (5)
 
 | Name                   | Location          | Severity |
 | :--------------------- | :---------------- | :------- |
 | typescript-json-schema | package.json:99:6 | error    |
-| @temporalio/testing    | package.json:74:6 | error    |
-| @temporalio/worker     | package.json:75:6 | error    |
 | formidable             | package.json:87:6 | error    |
 | sharp                  | package.json:97:6 | error    |
 | cors                   | package.json:78:6 | error    |

@@ -39,7 +39,7 @@ services:
           - database
 
   temporal:
-    image: temporalio/auto-setup:1.20.0
+    image: temporalio/auto-setup:1.28.1
     container_name: temporal-prod
     depends_on:
       postgresql:
@@ -83,7 +83,7 @@ services:
           - temporal-server
 
   temporal-ui:
-    image: temporalio/ui:2.18.2
+    image: temporalio/ui:2.39.0
     container_name: temporal-ui-prod
     depends_on:
       temporal:

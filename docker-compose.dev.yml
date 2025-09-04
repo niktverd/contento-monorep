@@ -128,7 +128,7 @@ services:
 
   temporal:
     container_name: temporal-dev
-    image: temporalio/auto-setup:1.20.0
+    image: temporalio/auto-setup:1.28.1
     depends_on:
       - postgresql
     environment:
@@ -148,7 +148,7 @@ services:
 
   temporal-ui:
     container_name: temporal-ui-dev
-    image: temporalio/ui:2.18.2
+    image: temporalio/ui:2.39.0
     depends_on:
       - temporal
     environment:
