@@ -11,8 +11,8 @@ export const ScenarioSchema = createEntitySchema({
     enabled: z.boolean().optional(),
     onlyOnce: z.boolean().optional(),
     copiedFrom: z.number().nullable().optional(),
-    options: z.record(z.any()).optional(),
-    texts: z.record(z.any()).optional(),
+    options: z.record(z.string(), z.any()).optional(),
+    texts: z.record(z.string(), z.any()).optional(),
     instagramLocationSource: z
         .nativeEnum(InstagramLocationSource)
         .default(InstagramLocationSource.Scenario)

@@ -5,7 +5,7 @@ import {zodOptionalBoolean} from './utils';
 import {IAccount} from '#schemas/models/account';
 import {AccountSchema} from '#src/types/schemas/models';
 
-export const CreateAccountParamsSchema = AccountSchema.omit({id: true, organizationId: true});
+export const CreateAccountParamsSchema = AccountSchema.omit({id: true});
 export const GetAccountByIdParamsSchema = z
     .object({
         id: z.number(),

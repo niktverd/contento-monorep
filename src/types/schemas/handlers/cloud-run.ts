@@ -6,7 +6,7 @@ export const CloudRunCreateScenarioVideoSchema = z.object({
         data: z.string(), // Base64 encoded string
         messageId: z.string(),
         publishTime: z.string(),
-        attributes: z.record(z.string()).optional(),
+        attributes: z.record(z.string(), z.string()).optional(),
     }),
     subscription: z.string().optional(),
 });

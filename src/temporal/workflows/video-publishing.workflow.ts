@@ -42,6 +42,10 @@ export async function publishingScheduleWorkflow(): Promise<void> {
         const accounts = await getAccounts(organization.id);
 
         for (const account of accounts.accounts) {
+            if (!account.organizationId) {
+                continue;
+            }
+
             try {
                 const randomPreparedVideo = await getRandomPreparedVideo(
                     account.id,

@@ -4,7 +4,7 @@ import {IScenario} from '#schemas/models/scenario';
 import {ScenarioType} from '#src/types/enums';
 import {ScenarioSchema} from '#src/types/schemas/models';
 
-export const CreateScenarioParamsSchema = ScenarioSchema.omit({id: true, organizationId: true});
+export const CreateScenarioParamsSchema = ScenarioSchema.omit({id: true});
 
 export const GetScenarioByIdParamsSchema = z
     .object({

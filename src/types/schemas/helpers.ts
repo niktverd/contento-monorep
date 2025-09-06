@@ -1,5 +1,8 @@
-export const queryToNumberArray = (val: unknown): number[] => {
-    if (!val) {
+export const queryToNumberArray = (val: unknown): number[] | undefined => {
+    if (val === null || val === undefined) {
+        return undefined;
+    }
+    if (val === '') {
         return [];
     }
     if (Array.isArray(val)) {
@@ -14,17 +17,26 @@ export const queryToNumberArray = (val: unknown): number[] => {
     return [];
 };
 
-export const queryToBoolean = (val: unknown): boolean => {
+export const queryToBoolean = (val: unknown): boolean | undefined => {
+    if (val === null || val === undefined) {
+        return undefined;
+    }
     if (typeof val === 'boolean') {
         return val;
     }
     if (typeof val === 'string') {
-        return val.toLowerCase() === 'true' || val === '1';
+        const lower = val.toLowerCase();
+        if (lower === 'true' || lower === '1') {
+            return true;
+        }
+        if (lower === 'false' || lower === '0') {
+            return false;
+        }
     }
     if (typeof val === 'number') {
         return val !== 0;
     }
-    return false;
+    return undefined;
 };
 
 export const queryToNumber = (val: unknown): number | undefined => {

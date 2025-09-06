@@ -152,6 +152,7 @@ export const getWorkflowResultHandler: ApiFunctionPrototype<
                     success: false,
                     error: 'Workflow not found',
                     details: `Workflow with ID ${params.workflowId} does not exist`,
+                    result: null,
                 },
                 code: 404,
             };
@@ -162,6 +163,7 @@ export const getWorkflowResultHandler: ApiFunctionPrototype<
                 success: false,
                 error: 'Failed to get workflow result',
                 details: error instanceof Error ? error.message : 'Unknown error occurred',
+                result: null,
             },
             code: 500,
         };
