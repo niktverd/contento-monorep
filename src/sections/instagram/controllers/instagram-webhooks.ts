@@ -171,7 +171,9 @@ const messageWebhookV3: ApiFunctionPrototype<
                 organization.id,
             );
 
-            const sourceRecord = await createSource(data, db, {organizationId: organization.id});
+            const sourceRecord = await createSource(data, db, {
+                organizationId: organization.organizationId,
+            });
             log('firestoreDoc', sourceRecord);
             await startVideoDownloadingWorkflow(
                 {
