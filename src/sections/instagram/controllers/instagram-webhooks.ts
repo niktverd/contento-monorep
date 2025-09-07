@@ -168,7 +168,7 @@ const messageWebhookV3: ApiFunctionPrototype<
                 params.body,
                 senderId,
                 recipientId,
-                organization.id,
+                organization.organizationId,
             );
 
             const sourceRecord = await createSource(data, db, {
@@ -179,7 +179,7 @@ const messageWebhookV3: ApiFunctionPrototype<
                 {
                     sourceId: sourceRecord.result.id,
                 },
-                {organizationId: organization.id},
+                {organizationId: organization.organizationId},
             );
         }
     } catch (error) {
