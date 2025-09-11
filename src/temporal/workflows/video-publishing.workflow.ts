@@ -33,6 +33,7 @@ export async function videoPublishingWorkflow(
     await publishPost({
         mediaContainerId: container.mediaContainerId,
         account: account,
+        instagramMediaContainerId: container.instagramMediaContainerId,
     });
 }
 

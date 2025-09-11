@@ -1,8 +1,9 @@
 # Knip report
 
-## Unused files (37)
+## Unused files (38)
 
 * src/db/scripts/migrateToPostgres.ts
+* src/debug-replayer.ts
 * src/scripts/e2e-deploy-test.ts
 * src/scripts/full-deployment-test.ts
 * src/scripts/load-test-temporal.ts
