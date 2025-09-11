@@ -262,9 +262,32 @@ export async function publishInstagramPost(
             mediaContainerId,
             instagramMediaContainerId,
         });
+        Context.current().log.info(
+            `Instagram post published successfully: ${JSON.stringify({
+                postId: publishResponse.postId,
+                mediaContainerId,
+                instagramMediaContainerId,
+            })}`,
+        );
 
         // Update DB record to mark as published
         if (instagramMediaContainerId) {
+            Context.current().log.info(
+                `updating instagram media container record: ${JSON.stringify({
+                    id: instagramMediaContainerId,
+                    mediaId: publishResponse.postId,
+                    isPublished: true,
+                    lastCheckedIGStatus: 'FINISHED',
+                })}`,
+            );
+            log(
+                `updating instagram media container record: ${JSON.stringify({
+                    id: instagramMediaContainerId,
+                    mediaId: publishResponse.postId,
+                    isPublished: true,
+                    lastCheckedIGStatus: 'FINISHED',
+                })}`,
+            );
             try {
                 await updateInstagramMediaContainer(
                     {
@@ -281,6 +304,12 @@ export async function publishInstagramPost(
                     error: dbUpdateError,
                     instagramMediaContainerId,
                 });
+                Context.current().log.error(
+                    `Failed to update instagram media container record: ${JSON.stringify({
+                        error: dbUpdateError,
+                        instagramMediaContainerId,
+                    })}`,
+                );
             }
         }
 
