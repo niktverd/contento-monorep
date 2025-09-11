@@ -343,9 +343,13 @@ export const getRandomPreparedVideForAccountActivity = async (
     organizationId: number,
 ) => {
     const db = getDb();
-    const {result} = await getOnePreparedVideo({accountId, random: true}, db, {
-        organizationId,
-    });
+    const {result} = await getOnePreparedVideo(
+        {accountId, random: true, notInInstagramMediaContainers: true},
+        db,
+        {
+            organizationId,
+        },
+    );
 
     return result;
 };
