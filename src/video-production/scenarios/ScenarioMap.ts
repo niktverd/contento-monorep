@@ -1,0 +1,55 @@
+// import {addBannerInTheEnd} from './AddBannerInTheEnd';
+import {z} from 'zod';
+
+import {addBannerInTheEndUnique} from './AddBannerInTheEndUnique';
+// import {coverWithImage} from './CoverWithImage';
+// import {prepareLongVideoWithShortInjections} from './LognVideoWithShortInjections';
+// import {shortify} from './Shortify';
+// import {coverWithGreenScenario} from './CoverWithGreen';
+import {coverWithGreenScenarioOptimized} from './CoverWithGreenOptimized';
+import {shortifyUnique} from './ShortifyUnique';
+import {ScenarioFunction} from './types';
+
+import {
+    ScenarioType,
+    // ScenarioType,
+    // scenarioAddBannerAtTheEndSchema,
+    scenarioAddBannerAtTheEndUniqueSchema,
+    scenarioCoverWithGreenUniqueSchema,
+    // scenarioCoverWithImageSchema,
+    // scenarioLongVideoWithInjectionsSchema,
+    // scenarioShortifySchema,
+    scenarioShortifyUniqueSchema,
+} from '#types';
+
+export const ScenarioMap: Record<ScenarioType, {scenario: ScenarioFunction; schema: z.ZodSchema}> =
+    {
+        // [ScenarioType.ScenarioAddBannerAtTheEnd]: {
+        //     scenario: addBannerInTheEnd,
+        //     schema: scenarioAddBannerAtTheEndSchema,
+        // },
+        [ScenarioType.ScenarioAddBannerAtTheEndUnique]: {
+            scenario: addBannerInTheEndUnique,
+            schema: scenarioAddBannerAtTheEndUniqueSchema,
+        },
+        // [ScenarioType.ScenarioCoverWithImage]: {
+        //     scenario: coverWithImage,
+        //     schema: scenarioCoverWithImageSchema,
+        // },
+        // [ScenarioType.ScenarioLongVideoWithInjections]: {
+        //     scenario: prepareLongVideoWithShortInjections,
+        //     schema: scenarioLongVideoWithInjectionsSchema,
+        // },
+        // [ScenarioType.ScenarioShortify]: {
+        //     scenario: shortify,
+        //     schema: scenarioShortifySchema,
+        // },
+        [ScenarioType.ScenarioShortifyUnique]: {
+            scenario: shortifyUnique,
+            schema: scenarioShortifyUniqueSchema,
+        },
+        [ScenarioType.ScenarioCoverWithGreenUnique]: {
+            scenario: coverWithGreenScenarioOptimized,
+            schema: scenarioCoverWithGreenUniqueSchema,
+        },
+    };
