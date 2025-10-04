@@ -8,7 +8,9 @@ import {
     hueAdjustVideo,
 } from '../video/primitives';
 import {randomBetween} from '../video/utils';
-import { workerLog } from 'src/utils/logger';
+
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 const updateBrightness = async (filePath: string) => {
     return applyVideoColorCorrection({input: filePath, brightness: randomBetween(-0.3, 0.3)});
@@ -67,12 +69,14 @@ type AddRandomEffectsArgs = {
 };
 
 export const addRandomEffects = async ({input, countOfEffects = 1, text}: AddRandomEffectsArgs) => {
+    
+        
     let output = input;
     const suffled = shuffle(arrayOfEffects);
 
     for (let i = 0; i < countOfEffects; i++) {
         output = await suffled[i](output);
-        workerLog.info('\n\n', output);
+        Context.current().log.info(formatLog('\n\n', output));
     }
 
     const disableText = true;

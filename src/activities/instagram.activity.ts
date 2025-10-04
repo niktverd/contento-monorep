@@ -22,12 +22,13 @@ import {
     PublishInstagramPostResult,
 } from '#types';
 import { NotRetryableError, ThrownError } from 'src/utils/error';
-import { workerLog } from 'src/utils/logger';
+
 import { getRandomElementOfArray, prepareCaption, delay } from 'src/utils/common';
 import { getAccountById } from 'src/database/api/account';
 import { getScenarioById } from 'src/database/api/scenario';
 import { createInstagramMediaContainer, updateInstagramMediaContainer } from 'src/database/api/instagram-media-containers';
 import { getOnePreparedVideo } from 'src/database/api/prepared-videos';
+import { formatLog } from 'src/utils/log';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -38,6 +39,7 @@ export async function createInstagramContainer(
     input: CreateInstagramContainerInput,
 ): Promise<CreateInstagramContainerResult> {
     const {preparedVideo} = input;
+    
 
     if (!preparedVideo) {
         throw new NotRetryableError('Prepared video is required', 400);
@@ -46,12 +48,12 @@ export async function createInstagramContainer(
     const {firebaseUrl, accountId, scenarioId, sourceId} = preparedVideo;
 
     try {
-        workerLog.info('Starting createInstagramContainer activity', {
+        Context.current().log.info(formatLog('Starting createInstagramContainer activity', {
             firebaseUrl,
             accountId,
             scenarioId,
             sourceId,
-        });
+        }));
 
         Context.current().heartbeat('Fetching account and scenario data');
 
@@ -73,10 +75,10 @@ export async function createInstagramContainer(
             throw new ThrownError(`Account with id ${accountId} has no access token`, 400);
         }
 
-        workerLog.info('Account and scenario fetched successfully', {
+        Context.current().log.info(formatLog('Account and scenario fetched successfully', {
             accountId: account.id,
             scenarioSlug: scenario.slug,
-        });
+        }));
 
         Context.current().heartbeat('Preparing Instagram post data');
 
@@ -93,11 +95,11 @@ export async function createInstagramContainer(
         const randomLocation = getRandomElementOfArray(localLocations || []);
         const locationId = randomLocation?.externalId;
 
-        workerLog.info('Prepared Instagram post data', {
+        Context.current().log.info(formatLog('Prepared Instagram post data', {
             caption: caption?.substring(0, 100) + '...',
             locationId,
             firebaseUrl,
-        });
+        }));
 
         Context.current().heartbeat('Creating Instagram media container');
 
@@ -116,9 +118,9 @@ export async function createInstagramContainer(
             );
         }
 
-        workerLog.info('Instagram container created successfully', {
+        Context.current().log.info(formatLog('Instagram container created successfully', {
             mediaContainerId: result.mediaContainerId,
-        });
+        }));
 
         Context.current().heartbeat('Persisting container info to database');
 
@@ -137,13 +139,13 @@ export async function createInstagramContainer(
 
         const instagramMediaContainerId = savedContainer?.result?.id;
 
-        workerLog.info('Container creation completed', {
+        Context.current().log.info(formatLog('Container creation completed', {
             mediaContainerId: result.mediaContainerId,
             instagramMediaContainerId,
             accountId,
             scenarioId,
             sourceId,
-        });
+        }));
 
         return {
             success: true,
@@ -152,12 +154,12 @@ export async function createInstagramContainer(
             instagramMediaContainerId,
         };
     } catch (error) {
-        workerLog.info('Error in createInstagramContainer activity', {
+        Context.current().log.error(formatLog('Error in createInstagramContainer activity', {
             error,
             accountId,
             scenarioId,
             sourceId,
-        });
+        }));
 
         if (error instanceof ThrownError) {
             return {
@@ -181,13 +183,15 @@ export async function createInstagramContainer(
 export async function publishInstagramPost(
     input: PublishInstagramPostInput,
 ): Promise<PublishInstagramPostResult> {
+    
+
     const {mediaContainerId, account, instagramMediaContainerId} = input;
 
     try {
-        workerLog.info('Starting publishInstagramPost activity', {
+        Context.current().log.info(formatLog('Starting publishInstagramPost activity', {
             mediaContainerId,
             account,
-        });
+        }));
 
         Context.current().heartbeat('Fetching account data');
 
@@ -203,7 +207,7 @@ export async function publishInstagramPost(
             throw new ThrownError(`Account with id ${account.id} has no access token`, 400);
         }
 
-        workerLog.info('Account fetched successfully', {accountId: account.id});
+        Context.current().log.info(formatLog('Account fetched successfully', {accountId: account.id}));
 
         Context.current().heartbeat('Checking container readiness');
 
@@ -213,7 +217,7 @@ export async function publishInstagramPost(
         const delayBetweenRetries = 30000; // 30 seconds
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            workerLog.info(`Checking if container is ready (attempt ${attempt}/${maxRetries})`);
+            Context.current().log.info(`Checking if container is ready (attempt ${attempt}/${maxRetries})`);
 
             Context.current().heartbeat(`Checking readiness: attempt ${attempt}/${maxRetries}`);
 
@@ -223,12 +227,12 @@ export async function publishInstagramPost(
             });
 
             if (isReady) {
-                workerLog.info(`Container is ready to publish on attempt ${attempt}`);
+                Context.current().log.info(`Container is ready to publish on attempt ${attempt}`);
                 break;
             }
 
             if (attempt < maxRetries) {
-                workerLog.info(
+                Context.current().log.info(
                     `Container not ready, waiting ${
                         delayBetweenRetries / 1000
                     } seconds before retry...`,
@@ -259,18 +263,18 @@ export async function publishInstagramPost(
             );
         }
 
-        workerLog.info('Instagram post published successfully', {
+        Context.current().log.info(formatLog('Instagram post published successfully', {
             postId: publishResponse.postId,
             mediaContainerId,
             instagramMediaContainerId,
-        });
-        Context.current().log.info(
+        }));
+        Context.current().log.info(formatLog(
             `Instagram post published successfully: ${JSON.stringify({
                 postId: publishResponse.postId,
                 mediaContainerId,
                 instagramMediaContainerId,
             })}`,
-        );
+        ));
 
         // Update DB record to mark as published
         if (instagramMediaContainerId) {
@@ -282,7 +286,7 @@ export async function publishInstagramPost(
                     lastCheckedIGStatus: 'FINISHED',
                 })}`,
             );
-            workerLog.info(
+            Context.current().log.info(
                 `updating instagram media container record: ${JSON.stringify({
                     id: instagramMediaContainerId,
                     mediaId: publishResponse.postId,
@@ -302,16 +306,16 @@ export async function publishInstagramPost(
                     {organizationId: account.organizationId},
                 );
             } catch (dbUpdateError) {
-                workerLog.info('Failed to update instagram media container record', {
+                Context.current().log.info(formatLog('Failed to update instagram media container record', {
                     error: dbUpdateError,
                     instagramMediaContainerId,
-                });
-                Context.current().log.error(
+                }));
+                Context.current().log.error(formatLog(
                     `Failed to update instagram media container record: ${JSON.stringify({
                         error: dbUpdateError,
                         instagramMediaContainerId,
                     })}`,
-                );
+                ));
             }
         }
 
@@ -320,11 +324,11 @@ export async function publishInstagramPost(
             postId: publishResponse.postId,
         };
     } catch (error) {
-        workerLog.info('Error in publishInstagramPost activity', {
+        Context.current().log.info(formatLog('Error in publishInstagramPost activity', {
             error,
             mediaContainerId,
             accountId: account?.id,
-        });
+        }));
 
         if (error instanceof ThrownError) {
             return {

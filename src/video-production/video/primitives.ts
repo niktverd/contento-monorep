@@ -6,8 +6,10 @@ import ffmpeg, {FfmpegCommand} from 'fluent-ffmpeg';
 
 import {checkHasAudio, getVideoDuration, getVideoResolution} from './ffprobe.helpers';
 
-import { workerLog } from 'src/utils/logger';
+
 import { ThrownError } from 'src/utils/error';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 type PrepareOoutputFileNameOptions = {
     outputFileName?: string;
@@ -26,29 +28,31 @@ const ffmpegCommon = (
     outputPath: string,
     reason?: string,
 ) => {
-    workerLog.info({outputPath, reason});
+    
+        
+    Context.current().log.info(formatLog({outputPath, reason}));
 
     if (ENABLE_STDERR) {
         ffmpegCommand.on('stderr', (stderrLine) => {
-            workerLog.error('FFmpeg stderr:', stderrLine);
+            Context.current().log.error(formatLog('FFmpeg stderr:', stderrLine));
         });
     }
 
     if (ENABLE_PROGRESS) {
         ffmpegCommand.on('progress', (progress) => {
-            workerLog.info(`Processing: ${progress}% done`);
+            Context.current().log.info(formatLog(`Processing: ${progress}% done`));
         });
     }
 
     if (ENABLE_START) {
         ffmpegCommand.on('start', (commandLine) => {
-            workerLog.info('FFmpeg process started:', commandLine);
+            Context.current().log.info(formatLog('FFmpeg process started:', commandLine));
         });
     }
 
     ffmpegCommand
         .on('error', (err) => {
-            workerLog.error(reason, 'Ошибка при обработке видео:', err);
+            Context.current().log.error(formatLog(reason, 'Ошибка при обработке видео:', err));
             reject(reason);
         })
         .on('end', () => resolve(outputPath));
@@ -253,17 +257,19 @@ export const coverWithGreen = async ({
     duration,
     padding = 0,
 }: CoverWithGreenArgs): Promise<string> => {
+    
+    
     const outputPath = prepareOutputFileName(input, {
         suffix: '_green_covered',
         extention: '.mp4',
     });
-    workerLog.info('coverWithGreen', {
+    Context.current().log.info(formatLog('coverWithGreen', {
         input,
         outputPath,
         green,
         startTime,
         duration,
-    });
+    }));
     const complexFilters = [
         // Применяем chromakey к видео с зеленым экраном
         {
@@ -322,7 +328,7 @@ export const coverWithGreen = async ({
     ];
     // ].filter((filter) => filter !== 'none');
 
-    workerLog.info('complexFilters', complexFilters);
+    Context.current().log.info(formatLog('complexFilters', complexFilters));
 
     return new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg()
@@ -389,6 +395,8 @@ export const overlayImageOnVideo = async ({
     startTime = 0,
     duration,
 }: OverlayImageOptions): Promise<string> => {
+    
+    
     const outputPath = prepareOutputFileName(input, {
         suffix: '_covered_with_image',
         extention: '.mp4',
@@ -396,7 +404,7 @@ export const overlayImageOnVideo = async ({
 
     const videoDuration = await getVideoDuration(input);
 
-    workerLog.info({
+    Context.current().log.info(formatLog({
         overlayImage,
         outputPath,
         left, // По умолчанию центр (50%)
@@ -406,7 +414,7 @@ export const overlayImageOnVideo = async ({
         startTime,
         duration,
         videoDuration,
-    });
+    }));
 
     return new Promise((resolve, reject) => {
         const complexFilters = [
@@ -584,7 +592,9 @@ export const rotateVideo = async ({
     scale,
     pathSuffix = '',
 }: RotateScaleVideoArgs): Promise<string> => {
-    workerLog.info('rotateVideo started');
+    
+    
+    Context.current().log.info(formatLog('rotateVideo started'));
     const outputPath = prepareOutputFileName(input, {
         suffix: '_rotaded' + pathSuffix,
         extention: '.mp4',
@@ -636,7 +646,9 @@ type AddTextToVideoArgs = {
 };
 
 export const addTextToVideo = async ({input, text = ''}: AddTextToVideoArgs): Promise<string> => {
-    workerLog.info('addTextToVideo started');
+    
+    
+    Context.current().log.info(formatLog('addTextToVideo started'));
     const outputPath = prepareOutputFileName(input, {
         suffix: '_with_text',
         extention: '.mp4',
@@ -670,7 +682,9 @@ export const changeVideoSpeed = async ({
     speed,
     outputOverride,
 }: ChangeVideoSpeedArgs): Promise<string> => {
-    workerLog.info('changeVideoSpeed started');
+    
+    
+    Context.current().log.info(formatLog('changeVideoSpeed started'));
     if (speed <= 0) {
         throw new ThrownError('Speed must be greater than 0', 400);
     }
@@ -707,7 +721,9 @@ export const generateVideoMetadata = ({
     input = '',
     iteration = 0,
 }: GenerateMetadataArgs = {}): Record<string, string> => {
-    workerLog.info('generateVideoMetadata started');
+    
+    
+    Context.current().log.info(formatLog('generateVideoMetadata started'));
     const timestamp = Date.now();
     const randomHash = crypto
         .createHash('sha256')
@@ -747,7 +763,9 @@ export const applyMetadata = async ({
     metadata,
     outputOverride,
 }: ApplyMetadataArgs): Promise<string> => {
-    workerLog.info('applyMetadata started');
+    
+    
+    Context.current().log.info(formatLog('applyMetadata started'));
     const outputPath = prepareOutputFileName(input, {
         outputFileName: outputOverride,
         suffix: '_with_metadata',
@@ -783,7 +801,9 @@ export const hueAdjustVideo = async ({
     saturation = 1,
     pathSuffix = '',
 }: HueAdjustVideoArgs): Promise<string> => {
-    workerLog.info('hueAdjustVideo started');
+    
+    
+    Context.current().log.info(formatLog('hueAdjustVideo started'));
     const outputPath = prepareOutputFileName(input, {
         suffix: '_hue_adjusted' + pathSuffix,
         extention: '.mp4',
@@ -818,7 +838,9 @@ export const applyBoxBlur = async ({
     iterations = 1,
     pathSuffix = '',
 }: ApplyBoxBlurArgs): Promise<string> => {
-    workerLog.info('applyBoxBlur started');
+    
+    
+    Context.current().log.info(formatLog('applyBoxBlur started'));
     const outputPath = prepareOutputFileName(input, {
         suffix: '_blurred' + pathSuffix,
         extention: '.mp4',

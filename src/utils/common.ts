@@ -2,10 +2,11 @@ import dotenv from 'dotenv';
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {getDownloadURL, ref, uploadBytes} from 'firebase/storage';
-import { storage } from 'src/configs/firebase';
-import { workerLog } from './logger';
+import { storage } from '../configs/firebase';
 import { IScenario } from '#types';
 import { shuffle } from 'lodash';
+import { Context } from '@temporalio/activity';
+import { formatLog } from './log';
 
 dotenv.config();
 
@@ -51,7 +52,7 @@ export const uploadFileFromUrl = async ({url, fileName}: UploadFileFromUrlArgs) 
 
         return downloadURL;
     } catch (error) {
-        workerLog.info('Ошибка при загрузке файла:', error);
+        Context.current().log.error(formatLog('Ошибка при загрузке файла:', error));
         throw error;
     }
 }
@@ -69,14 +70,15 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 
 
 export const uploadFileToServer = async (outputFilePath: string, uploadFileName: string) => {
-    workerLog.info({outputFilePath, uploadFileName});
+    
+    Context.current().log.info(formatLog({outputFilePath, uploadFileName}));
     const processedBuffer = readFileSync(outputFilePath);
     const fileRef = ref(storage, uploadFileName);
     const contentType = 'video/mp4';
     const metadata = {contentType};
     await uploadBytes(fileRef, processedBuffer, metadata);
     const downloadURL = await getDownloadURL(fileRef);
-    workerLog.info('downloadURL', downloadURL);
+    Context.current().log.info(formatLog('downloadURL', downloadURL));
 
     return downloadURL;
 };

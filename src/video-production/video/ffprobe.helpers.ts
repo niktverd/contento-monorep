@@ -1,5 +1,7 @@
+import { Context } from '@temporalio/activity';
 import ffmpeg from 'fluent-ffmpeg';
-import { workerLog } from 'src/utils/logger';
+import { formatLog } from 'src/utils/log';
+
 
 /**
  * Получает разрешение (ширину и высоту) первого видеопотока файла.
@@ -78,19 +80,21 @@ export async function checkHasAudio(input: string): Promise<boolean> {
  */
 export async function logStreamsInfo(input: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
+        
+            
         ffmpeg.ffprobe(input, (err, dataLocal) => {
             if (err) {
                 reject(err);
                 return;
             }
             // eslint-disable-next-line no-console
-            workerLog.info('Streams of ', input);
+            Context.current().log.info(formatLog('Streams of ', input));
             dataLocal.streams.forEach((stream) => {
                 // eslint-disable-next-line no-console
-                workerLog.info(stream);
+                Context.current().log.info(String(stream));
             });
             // eslint-disable-next-line no-console
-            workerLog.info('\n\n');
+            Context.current().log.info('\n\n');
             resolve(true);
         });
     });

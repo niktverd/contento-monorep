@@ -25,7 +25,6 @@ import {ApiFunctionPrototype} from '#types';
 import {IAccount, InstagramLocationSource, MediaPostModelOld} from '#types';
 import { ThrownError } from './utils/error';
 import { getRandomElementOfArray, prepareCaption } from './utils/common';
-import { workerLog } from './utils/logger';
 import { saveFileToDisk } from './utils/files';
 import { delay } from './utils/common';
 import { firestore, storage } from './configs/firebase';
@@ -33,6 +32,8 @@ import { createInstagramMediaContainer, getLimitedInstagramMediaContainers, upda
 import { getOnePreparedVideo } from './database/api/prepared-videos';
 import { DelayMS, DelayS } from './constants';
 import { processAndConcatVideos } from './utils/video';
+import { Context } from '@temporalio/activity';
+import { formatLog } from './utils/log';
 
 dotenv.config();
 
@@ -58,6 +59,8 @@ export async function createInstagramPostContainer({
     accessToken,
     locationId,
 }: CreateInstagramPostContainerArgs) {
+    
+    
     try {
         if (!accessToken) {
             throw new ThrownError('Access token not found', 400);
@@ -91,7 +94,7 @@ export async function createInstagramPostContainer({
         } else {
             throw new ThrownError('Data is not provided', 400);
         }
-        workerLog.info({postData});
+        Context.current().log.info(formatLog({postData}));
 
         const createMediaResponse = await fetch(`https://graph.instagram.com/v21.0/me/media`, {
             method: 'POST',
@@ -101,10 +104,10 @@ export async function createInstagramPostContainer({
             body: JSON.stringify(postData),
         });
 
-        workerLog.info({createMediaResponse});
+        Context.current().log.info(formatLog({createMediaResponse}));
 
         const createMediaResponseJson: any = await createMediaResponse.json();
-        workerLog.info({createMediaResponseJson});
+        Context.current().log.info(formatLog({createMediaResponseJson}));
 
         const mediaContainerId = createMediaResponseJson.id;
 
@@ -131,6 +134,8 @@ export async function getMergedVideo({
 > & {
     finalVideoUrl: string;
 }) {
+    
+
     // download video from instagram
     // download my video
     const temp1 = path.join(__dirname, `first.mp4`);
@@ -157,7 +162,7 @@ export async function getMergedVideo({
 
     const downloadURL = await getDownloadURL(fileRef);
 
-    workerLog.info('Файл успешно загружен:', downloadURL);
+    Context.current().log.info(formatLog('Файл успешно загружен:', downloadURL));
 
     return {downloadURL, readstream};
 }
@@ -171,9 +176,11 @@ export async function publishInstagramPostContainer({
     containerId,
     accessToken,
 }: CublishInstagramPostContainerArgs) {
+    
+
     let lastCheckedIGStatus = 'UNKNOWN';
     try {
-        workerLog.info({containerId, accessToken});
+        Context.current().log.info(formatLog({containerId, accessToken}));
         if (!accessToken || !containerId) {
             throw new ThrownError(
                 `Access token not found or container id is empty: ${JSON.stringify({
@@ -190,7 +197,7 @@ export async function publishInstagramPostContainer({
         );
 
         const statusResponseJson: any = await statusResponse.json();
-        workerLog.info({statusResponseJson});
+        Context.current().log.info(formatLog({statusResponseJson}));
 
         lastCheckedIGStatus = statusResponseJson.status_code;
         if (statusResponseJson.status_code !== 'FINISHED') {
@@ -210,7 +217,7 @@ export async function publishInstagramPostContainer({
         });
 
         const publishResponseJson: any = await publishResponse.json();
-        workerLog.info({publishResponseJson});
+        Context.current().log.info(formatLog({publishResponseJson}));
         return {
             success: true,
             postId: publishResponseJson.id,
@@ -218,7 +225,7 @@ export async function publishInstagramPostContainer({
         };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-        workerLog.error(error);
+        Context.current().log.error(error);
         return {
             success: false,
             error: error.response?.data || error.message,
@@ -228,6 +235,8 @@ export async function publishInstagramPostContainer({
 }
 
 export async function findUnpublishedContainer() {
+    
+
     const systemCollectionRef = collection(firestore, 'system');
     const scheduleDocRef = doc(systemCollectionRef, 'schedule');
     const scheduleSnap = await getDoc(scheduleDocRef);
@@ -235,7 +244,7 @@ export async function findUnpublishedContainer() {
         const schedule = scheduleSnap.data();
         const now = new Date().getTime() / 1000;
         const diff = now - schedule.lastPublishingTime.seconds;
-        workerLog.info({schedule, now, diff});
+        Context.current().log.info(formatLog({schedule, now, diff}));
 
         if (diff < DelayS.Min10) {
             return;
@@ -251,16 +260,16 @@ export async function findUnpublishedContainer() {
         ),
     );
     for (const document of documents) {
-        workerLog.info(document);
+        Context.current().log.info(formatLog(document));
         const documentRef = doc(collectionRef, document.id);
 
         if (document.mediaContainerId && document.status !== 'published') {
             const tokenObj = accessTokensArray.find(({id}) => id === document.account);
             const accessToken = tokenObj?.token || accessTokensArray[0].token;
-            workerLog.info({accessTokensArray});
-            workerLog.info({tokenObj});
-            workerLog.info({'tokenObj?.token': tokenObj?.token});
-            workerLog.info({accessToken});
+            Context.current().log.info(formatLog({accessTokensArray}));
+            Context.current().log.info(formatLog({tokenObj}));
+            Context.current().log.info(formatLog({'tokenObj?.token': tokenObj?.token}));
+            Context.current().log.info(formatLog({accessToken}));
             const result = await publishInstagramPostContainer({
                 containerId: document.mediaContainerId,
                 accessToken,
@@ -276,7 +285,7 @@ export async function findUnpublishedContainer() {
         const now = new Date();
         const dateDiff = now.getTime() / 1000 - createdAt.seconds;
 
-        workerLog.info({dateDiff, delay: DelayS.Day2});
+        Context.current().log.info(formatLog({dateDiff, delay: DelayS.Day2}));
 
         if (dateDiff > DelayS.Day2) {
             await deleteDoc(documentRef);
@@ -293,8 +302,10 @@ export const canInstagramPostBePublished = async ({
     mediaContainerId,
     accessToken,
 }: CanInstagramPostBePublishedArgs) => {
+    
+
     try {
-        workerLog.info({mediaContainerId, accessToken});
+        Context.current().log.info(formatLog({mediaContainerId, accessToken}));
         if (!accessToken || !mediaContainerId) {
             throw new ThrownError('Access token not found or container id is empty', 400);
         }
@@ -304,7 +315,7 @@ export const canInstagramPostBePublished = async ({
         );
 
         const statusResponseJson: any = await statusResponse.json();
-        workerLog.info({statusResponseJson});
+        Context.current().log.info(formatLog({statusResponseJson}));
 
         if (statusResponseJson.status_code !== 'FINISHED') {
             throw new ThrownError('Container is not ready to be published', 400);
@@ -312,7 +323,7 @@ export const canInstagramPostBePublished = async ({
 
         return true;
     } catch (error) {
-        workerLog.info(error);
+        Context.current().log.error(formatLog(error));
         return false;
     }
 };
@@ -321,6 +332,8 @@ export const prepareMediaContainersForAccount: ApiFunctionPrototype<
     IAccount,
     PublishIntagramV4PostResponse
 > = async (account, db) => {
+    
+
     const {result: mediaContainers} = await getLimitedInstagramMediaContainers(
         {
             accountId: account.id,
@@ -332,7 +345,7 @@ export const prepareMediaContainersForAccount: ApiFunctionPrototype<
     );
 
     if (mediaContainers.length) {
-        workerLog.info('Not necessary to prepare media containers', mediaContainers);
+        Context.current().log.info(formatLog('Not necessary to prepare media containers', mediaContainers));
         return {
             result: {
                 success: true,
@@ -355,7 +368,7 @@ export const prepareMediaContainersForAccount: ApiFunctionPrototype<
     );
 
     if (!preparedVideo) {
-        workerLog.info('Has no prepared video', preparedVideo);
+        Context.current().log.info(formatLog('Has no prepared video', preparedVideo));
         return {
             result: {
                 success: true,
@@ -377,7 +390,7 @@ export const prepareMediaContainersForAccount: ApiFunctionPrototype<
             : account.instagramLocations;
 
     const randomLocation = getRandomElementOfArray(localLocations || []);
-    workerLog.info({randomLocation});
+    Context.current().log.info(formatLog({randomLocation}));
 
     const locationId = randomLocation?.externalId;
     if (account.token) {
@@ -399,7 +412,7 @@ export const prepareMediaContainersForAccount: ApiFunctionPrototype<
             );
         }
 
-        workerLog.info(result);
+        Context.current().log.info(formatLog(result));
     }
 
     return {

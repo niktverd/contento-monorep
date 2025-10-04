@@ -2,7 +2,9 @@ import {videoPublishingWorkflow} from '../workflows';
 
 import {getTemporalClient} from '../client';
 import {RunPublishingActivityArgs, RunPublishingActivityResponse} from '#types';
-import { workerLog } from 'src/utils/logger';
+
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -11,6 +13,8 @@ import { workerLog } from 'src/utils/logger';
 export async function runPublishingActivity(
     input: RunPublishingActivityArgs,
 ): Promise<RunPublishingActivityResponse> {
+    
+    
     const client = await getTemporalClient();
     const taskQueue = 'process-video-publishing';
 
@@ -21,11 +25,11 @@ export async function runPublishingActivity(
         .toString(36)
         .substr(2, 9)}`;
 
-    workerLog.info('Starting video publishing workflow', {
+    Context.current().log.info(formatLog('Starting video publishing workflow', {
         workflowId,
         input,
         taskQueue,
-    });
+    }));
 
     const handle = await client.workflow.start(videoPublishingWorkflow, {
         args: [preparedVideo, account],

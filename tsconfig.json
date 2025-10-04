@@ -10,6 +10,7 @@
     "outDir": "./lib",
     "baseUrl": ".",
     "paths": {
+      "src/*": ["src/*"],
       "#types": ["src/sharedTypes/index.ts"],
       "#schemas/*": ["src/types/schemas/*"]
     }

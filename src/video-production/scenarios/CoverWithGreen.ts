@@ -7,16 +7,20 @@ import {addRandomEffects} from './utils';
 
 import {ScenarioCoverWithGreenUnique} from '#types';
 import { ThrownError } from 'src/utils/error';
-import { workerLog } from 'src/utils/logger';
+
 import { saveFileToDisk } from 'src/utils/files';
 import { getRandomElementOfArray } from 'src/utils/common';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 export const coverWithGreenScenario: ScenarioFunction = async ({scenario, source, basePath}) => {
-    workerLog.info('coverWithGreenScenario', {
+    
+        
+    Context.current().log.info(formatLog('coverWithGreenScenario', {
         source,
         scenario,
         basePath,
-    });
+    }));
 
     const {firebaseUrl: mainVideoUrl} = source;
 
@@ -24,7 +28,7 @@ export const coverWithGreenScenario: ScenarioFunction = async ({scenario, source
         options: {greenVideoUrls, loopGreen, whereToPutGreen},
     } = scenario as ScenarioCoverWithGreenUnique;
 
-    workerLog.info({mainVideoUrl});
+    Context.current().log.info(formatLog({mainVideoUrl}));
     if (!mainVideoUrl) {
         throw new ThrownError('Main video URL is not found', 400);
     }

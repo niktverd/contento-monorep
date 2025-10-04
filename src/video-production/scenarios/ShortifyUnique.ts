@@ -12,17 +12,21 @@ import {ScenarioFunction} from './types';
 import {addRandomEffects} from './utils';
 
 import {ScenarioShortifyUnique} from '#types';
-import { workerLog } from 'src/utils/logger';
+
 import { ThrownError } from 'src/utils/error';
 import { getRandomElementOfArray } from 'src/utils/common';
 import { saveFileToDisk } from 'src/utils/files';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 export const shortifyUnique: ScenarioFunction = async ({scenario, source, basePath}) => {
-    workerLog.info('shortifyUnique', {
+    
+        
+    Context.current().log.info(formatLog('shortifyUnique', {
         source,
         scenario,
         basePath,
-    });
+    }));
 
     const {firebaseUrl: mainVideoUrl} = source;
 
@@ -32,7 +36,7 @@ export const shortifyUnique: ScenarioFunction = async ({scenario, source, basePa
 
     // Use the first banner URL from the array
     const bannerVideoUrl = getRandomElementOfArray(bannerVideoUrls);
-    workerLog.info({mainVideoUrl, bannerVideoUrl});
+    Context.current().log.info(formatLog({mainVideoUrl, bannerVideoUrl}));
     if (!bannerVideoUrl) {
         throw new ThrownError('Banner video URL is not found', 400);
     }

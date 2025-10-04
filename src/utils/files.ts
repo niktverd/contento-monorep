@@ -1,8 +1,10 @@
 import { writeFileSync } from "fs";
-import { workerLog } from "./logger";
+import { Context } from "@temporalio/activity";
+import { formatLog } from "./log";
 
 export const saveFileToDisk = async (url: string, filePath: string) => {
-    workerLog.info('saveFileToDisk', {url});
+    
+    Context.current().log.info(formatLog('saveFileToDisk', {url}));
     const response = await fetch(url, {
         method: 'GET',
         responseType: 'arraybuffer',

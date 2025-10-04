@@ -7,19 +7,23 @@ import {addRandomEffects} from './utils';
 
 import {ScenarioAddBannerAtTheEndUnique} from '#types';
 import { ThrownError } from 'src/utils/error';
-import { workerLog } from 'src/utils/logger';
+
 import { saveFileToDisk } from 'src/utils/files';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 export const addBannerInTheEndUnique: ScenarioFunction = async ({
     scenario,
     source,
     basePath,
 }): Promise<string> => {
+    
+    
     const {
         options: {extraBannerUrl},
     } = scenario as ScenarioAddBannerAtTheEndUnique;
     const {firebaseUrl: mainVideoUrl} = source;
-    workerLog.info('addBannerInTheEndUnique', {mainVideoUrl, extraBannerUrl});
+    Context.current().log.info(formatLog('addBannerInTheEndUnique', {mainVideoUrl, extraBannerUrl}));
 
     if (!mainVideoUrl) {
         throw new ThrownError('Main video URL is not found', 400);

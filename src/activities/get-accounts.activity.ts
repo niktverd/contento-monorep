@@ -1,8 +1,8 @@
 // Download Video Activity for Temporal Workflow
 import {GetAccountsActivityResponse} from '#types';
-import { workerLog } from 'src/utils/logger';
 import db from '../database';
 import { getAllAccounts } from 'src/database/api/account';
+import { Context } from '@temporalio/activity';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -15,7 +15,7 @@ export async function getAccountsActivity(
     if (!organizationId) {
         // If no organization context, return empty accounts array
         // This maintains backward compatibility but logs a warning
-        workerLog.error(
+        Context.current().log.error(
             'getAccountsActivity called without organization context - returning empty accounts',
         );
         return {

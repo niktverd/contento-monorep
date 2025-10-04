@@ -5,7 +5,9 @@ import {shuffle} from 'lodash';
 
 import {checkHasAudio, getVideoDuration, getVideoResolution} from './ffprobe.helpers';
 import {randomBetween} from './utils';
-import { workerLog } from 'src/utils/logger';
+
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 interface ComplexFilter {
     filter: string;
@@ -110,7 +112,9 @@ export class VideoPipeline {
     }
 
     async init(input: string): Promise<VideoPipeline> {
-        workerLog.info('init started');
+        
+            
+        Context.current().log.info(formatLog('init started'));
         // Проверка наличия аудиопотока
         try {
             this.hasAudio = await checkHasAudio(input);
@@ -134,10 +138,12 @@ export class VideoPipeline {
     }
 
     async run(output: string): Promise<string> {
-        workerLog.info('run started');
-        workerLog.info('run inputs', this.inputs);
-        workerLog.info('run output', output);
-        workerLog.info('run complexFilters', this.complexFilters);
+        
+    
+        Context.current().log.info(formatLog('run started'));
+        Context.current().log.info(formatLog('run inputs', this.inputs));
+        Context.current().log.info(formatLog('run output', output));
+        Context.current().log.info(formatLog('run complexFilters', this.complexFilters));
         return new Promise((resolve, reject) => {
             if (!this.inputs || this.inputs.length === 0) {
                 reject(new Error('Input files are not set'));
@@ -183,18 +189,18 @@ export class VideoPipeline {
             // Условия для логирования событий
             if (process.env.ENABLE_START === 'true') {
                 command.on('start', (cmdLine: string) => {
-                    workerLog.info(`FFmpeg process started: ${cmdLine}`);
+                    Context.current().log.info(`FFmpeg process started: ${cmdLine}`);
                 });
             }
             if (process.env.ENABLE_PROGRESS === 'true') {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 command.on('progress', (progress: any) => {
-                    workerLog.info(`VideoPipeline.run progress: ${progress.percent}%`);
+                    Context.current().log.info(`VideoPipeline.run progress: ${progress.percent}%`);
                 });
             }
             if (process.env.ENABLE_STDERR === 'true') {
                 command.on('stderr', (stderrLine: string) => {
-                    workerLog.error('FFmpeg stderr:', stderrLine);
+                    Context.current().log.error(formatLog('FFmpeg stderr:', stderrLine));
                 });
             }
 
@@ -205,11 +211,11 @@ export class VideoPipeline {
 
             command
                 .on('end', () => {
-                    workerLog.info(`VideoPipeline.run completed successfully`);
+                    Context.current().log.info(`VideoPipeline.run completed successfully`);
                     resolve(output);
                 })
                 .on('error', (err: Error) => {
-                    workerLog.error(`VideoPipeline.run failed:`, err);
+                    Context.current().log.error(`VideoPipeline.run failed:`, err);
                     reject(err);
                 })
                 .run();
@@ -221,7 +227,9 @@ export class VideoPipeline {
     }
 
     makeItRed(): VideoPipeline {
-        workerLog.info('makeItRed started');
+        
+    
+        Context.current().log.info(formatLog('makeItRed started'));
         return this.wrap(() => {
             // 1. Split input into two streams: original and red
             const inputLabel = this.currentVideoStream;
@@ -250,7 +258,9 @@ export class VideoPipeline {
 
     rotate(angle = 0, scale?: number): VideoPipeline {
         return this.wrap(() => {
-            workerLog.info('rotate started');
+            
+    
+            Context.current().log.info(formatLog('rotate started'));
             try {
                 const localScale =
                     scale ??
@@ -346,7 +356,7 @@ export class VideoPipeline {
                     overlayFilter,
                 ];
             } catch (err) {
-                workerLog.info('rotate error', err);
+                Context.current().log.info(formatLog('rotate error', err));
                 throw err;
             }
         });
@@ -399,7 +409,9 @@ export class VideoPipeline {
 
     normalize(): VideoPipeline {
         return this.wrap(() => {
-            workerLog.info('\n\n\n normalize started');
+            
+    
+            Context.current().log.info(formatLog('\n\n\n normalize started'));
             const inputVideoStream = this.currentVideoStream;
             const outputVideoStream = this.getNewVideoStream();
 
@@ -458,12 +470,12 @@ export class VideoPipeline {
                           outputs: audioStreamOutput,
                       };
 
-            workerLog.info('\n\n\n normalize finished', {
+            Context.current().log.info(formatLog('\n\n\n normalize finished', {
                 scaleFilter,
                 padFilter,
                 setsarFilter,
                 firstAudioFilter,
-            });
+            }));
             return [scaleFilter, padFilter, setsarFilter, firstAudioFilter];
         });
     }
@@ -484,6 +496,8 @@ export class VideoPipeline {
             audioMode?: 'mix' | 'replace';
         },
     ): VideoPipeline {
+        
+    
         if (!this.isMaster) {
             throw new Error('overlayWith can only be called on a master VideoPipeline');
         }
@@ -498,7 +512,7 @@ export class VideoPipeline {
             throw new Error('overlayWith: padding must be >= 0');
         }
 
-        workerLog.info('overlayWith started', {startTime, duration, padding, audioMode, chromakey});
+        Context.current().log.info(formatLog('overlayWith started', {startTime, duration, padding, audioMode, chromakey}));
 
         return this.wrap(() => {
             const filtersToAdd: ComplexFilter[] = [];
@@ -647,7 +661,7 @@ export class VideoPipeline {
 
             // Comments for future: volume control can be added to amix or volume filters above
 
-            workerLog.info('overlayWith finished', {filtersToAdd});
+            Context.current().log.info(formatLog('overlayWith finished', {filtersToAdd}));
             return filtersToAdd;
         });
     }
@@ -660,6 +674,8 @@ export class VideoPipeline {
      * @returns VideoPipeline instance for chaining
      */
     trimVideo(start: number, end: number): VideoPipeline {
+        
+    
         if (typeof start !== 'number' || start < 0) {
             throw new Error('trimVideo: start must be a number >= 0');
         }
@@ -726,7 +742,7 @@ export class VideoPipeline {
             }
 
             if (process.env.ENABLE_PROGRESS === 'true') {
-                workerLog.info('trimVideo finished', {filtersToAdd});
+                Context.current().log.info(formatLog('trimVideo finished', {filtersToAdd}));
             }
 
             return filtersToAdd;
@@ -740,7 +756,9 @@ export class VideoPipeline {
      * @throws Error если параметры вне диапазона или не числа
      */
     colorCorrect(options?: ColorCorrectionOptions): VideoPipeline {
-        workerLog.info('colorCorrect started');
+        
+    
+        Context.current().log.info(formatLog('colorCorrect started'));
         const {brightness = 0, contrast = 1, saturation = 1, gamma = 1} = options || {};
         // Валидация диапазонов и типов
         if (typeof brightness !== 'number' || brightness < -1.0 || brightness > 1.0) {
@@ -788,7 +806,9 @@ export class VideoPipeline {
      * Примечание: поддержка сохранения высоты тона (maintainPitch) может быть добавлена в будущем через asetrate+aresample.
      */
     changeSpeed(speed: number): VideoPipeline {
-        workerLog.info('changeSpeed started');
+        
+    
+        Context.current().log.info(formatLog('changeSpeed started'));
         if (typeof speed !== 'number' || Number.isNaN(speed)) {
             throw new Error('changeSpeed: speed должен быть числом');
         }
@@ -881,7 +901,9 @@ export class VideoPipeline {
      * @throws Error если параметры некорректны
      */
     boxBlur(options?: BoxBlurOptions): VideoPipeline {
-        workerLog.info('boxBlur started');
+        
+    
+        Context.current().log.info(formatLog('boxBlur started'));
         const {boxWidth = 2, boxHeight = 2, iterations = 1} = options || {};
 
         // Валидация параметров
@@ -922,7 +944,9 @@ export class VideoPipeline {
      * @throws Error если параметры некорректны
      */
     hueAdjust(options?: HueAdjustOptions): VideoPipeline {
-        workerLog.info('hueAdjust started');
+        
+    
+        Context.current().log.info(formatLog('hueAdjust started'));
         const {hue = 0, saturation = 1} = options || {};
 
         // Валидация параметров
@@ -963,6 +987,8 @@ export class VideoPipeline {
      * @throws Error если countOfEffects не является положительным целым числом
      */
     applyRandomEffects(countOfEffects = 1): VideoPipeline {
+        
+    
         // Валидация параметров
         if (
             typeof countOfEffects !== 'number' ||
@@ -990,8 +1016,8 @@ export class VideoPipeline {
             shuffledEffects[i].call(this);
         }
 
-        workerLog.info('applyRandomEffects finished', {effectsToApply});
-        workerLog.info('this.complexFilters', this.complexFilters);
+        Context.current().log.info(formatLog('applyRandomEffects finished', {effectsToApply}));
+        Context.current().log.info(formatLog('this.complexFilters', this.complexFilters));
 
         // Автоматически применяем изменение скорости
         this.changeSpeed(randomBetween(0.87, 1.15));
@@ -1072,7 +1098,9 @@ export class VideoPipeline {
      * Использует входные файлы, длительность, compoundDuration и случайность
      */
     private generateVideoMetadata(): VideoMetadata {
-        workerLog.info('generateVideoMetadata started');
+        
+    
+        Context.current().log.info(formatLog('generateVideoMetadata started'));
         const timestamp = Date.now();
         const input = this.inputs && this.inputs.length > 0 ? this.inputs.join(',') : '';
         const randomHash = crypto

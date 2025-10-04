@@ -15,17 +15,21 @@ import {
     splitVideo,
 } from '../video/primitives';
 
-import {storage} from 'src/configs/firebase';
+import {storage} from '../../configs/firebase';
 import {MediaPostModel} from '#types';
 import { saveFileToDisk } from 'src/utils/files';
-import { workerLog } from 'src/utils/logger';
+
 import { getWorkingDirectoryForVideo } from 'src/utils/common';
 import { SECOND_VIDEO } from 'src/constants';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 const pauseSourcePath = '/Users/niktverd/code/instagram-video-downloader/greenPause.mp4';
 const playSourcePath = '/Users/niktverd/code/instagram-video-downloader/greenPlay.mp4';
 
 export const splitVideoInTheMiddle = async (data: MediaPostModel, firestoreId: string) => {
+    
+        
     const {sources} = data;
     if (!sources.instagramReel?.url || !firestoreId) {
         return;
@@ -46,7 +50,7 @@ export const splitVideoInTheMiddle = async (data: MediaPostModel, firestoreId: s
     const file1Duration = await getVideoDuration(tempFilePath1);
     const file2Duration = await getVideoDuration(tempFilePath2);
     const pauseTime = file1Duration / 2;
-    workerLog.info('times: ', {file1Duration, file2Duration, pauseTime});
+    Context.current().log.info(formatLog('times: ', {file1Duration, file2Duration, pauseTime}));
 
     // format videos
     const tempFilePath1Formated = await normalizeVideo(tempFilePath1);
@@ -85,7 +89,7 @@ export const splitVideoInTheMiddle = async (data: MediaPostModel, firestoreId: s
 
     const hasAudio = await checkHasAudio(pauseFilePath);
 
-    workerLog.info({hasAudio});
+    Context.current().log.info(formatLog({hasAudio}));
 
     const pauseWithAudioFilePath = await addSilentAudioStream({
         input: pauseFilePath,
@@ -115,7 +119,7 @@ export const splitVideoInTheMiddle = async (data: MediaPostModel, firestoreId: s
         duration: pauseDuration,
     });
 
-    workerLog.info({playDuration});
+    Context.current().log.info(formatLog({playDuration}));
 
     const greenPlayPath = await coverWithGreen({
         input: greenPausePath,
@@ -134,13 +138,15 @@ export const splitVideoInTheMiddle = async (data: MediaPostModel, firestoreId: s
     await uploadBytes(fileRef, processedBuffer, metadata);
 
     const downloadURL = await getDownloadURL(fileRef);
-    workerLog.info(downloadURL);
+    Context.current().log.info(downloadURL);
 
     // Clean up temporary files (optional) - use with caution in production!
     rmSync(basePath, {recursive: true});
 };
 
 export const testPIP = async (data: MediaPostModel, firestoreId: string) => {
+    
+    
     const {sources} = data;
     if (!sources.instagramReel?.url || !firestoreId) {
         return;
@@ -162,7 +168,7 @@ export const testPIP = async (data: MediaPostModel, firestoreId: string) => {
     const file1Duration = await getVideoDuration(tempFilePath1);
     const file2Duration = await getVideoDuration(tempFilePath2);
     const pauseTime = 2;
-    workerLog.info('times: ', {file1Duration, file2Duration, pauseTime});
+    Context.current().log.info(formatLog('times: ', {file1Duration, file2Duration, pauseTime}));
 
     // format videos
     const tempFilePath1Formated = await normalizeVideo(tempFilePath1);

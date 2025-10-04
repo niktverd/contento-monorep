@@ -38,8 +38,11 @@ export async function videoPublishingWorkflow(
 }
 
 export async function publishingScheduleWorkflow(): Promise<void> {
+    workflowLog.info('1');
     const organizations = await getOrganizations();
+    workflowLog.info('2');
     for (const organization of organizations.organizations) {
+        workflowLog.error('2');
         const accounts = await getAccounts(organization.id);
 
         for (const account of accounts.accounts) {

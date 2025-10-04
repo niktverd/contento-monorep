@@ -3,7 +3,9 @@ import {videoProcessingWorkflow} from '../workflows';
 
 import {getTemporalClient} from '../client';
 import {RunProcessingActivityArgs, RunProcessingActivityResponse} from '#types';
-import { workerLog } from 'src/utils/logger';
+
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -12,6 +14,8 @@ import { workerLog } from 'src/utils/logger';
 export async function runProcessingActivity(
     input: RunProcessingActivityArgs,
 ): Promise<RunProcessingActivityResponse> {
+    
+    
     const client = await getTemporalClient();
     const taskQueue = process.env.TEMPORAL_TASK_QUEUE || 'video-processing';
     const {source, account, scenario} = input;
@@ -21,11 +25,11 @@ export async function runProcessingActivity(
         scenario.id
     }-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    workerLog.info('Starting video workflow', {
+    Context.current().log.info(formatLog('Starting video workflow', {
         workflowId,
         input,
         taskQueue,
-    });
+    }));
 
     const handle = await client.workflow.start(videoProcessingWorkflow, {
         args: [{account, scenario, source}],

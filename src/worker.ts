@@ -17,7 +17,7 @@ async function run() {
     const worker = await Worker.create({
       connection,
       namespace: 'default',
-      taskQueue: TASK_QUEUE_NAME,
+      taskQueue: 'default',
       // Workflows are registered using a path as they run in a separate JS context.
       workflowsPath: require.resolve('./workflows'),
       activities,

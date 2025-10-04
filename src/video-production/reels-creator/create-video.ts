@@ -13,14 +13,18 @@ import sharp from 'sharp';
 import {templates} from './templates';
 import {createVideo} from './utils/create-video';
 
-import { workerLog } from 'src/utils/logger';
-import { firestore, storage } from 'src/configs/firebase';
+
+import { firestore, storage } from '../../configs/firebase';
+import { Context } from '@temporalio/activity';
+import { formatLog } from 'src/utils/log';
 
 // Enable debug mode for maximum logging
 const isDebug = true;
 
 export function getSvg(text: string, textSize: string) {
-    workerLog.info('Generating SVG with text:', text, 'size:', textSize);
+    
+    
+    Context.current().log.info(formatLog('Generating SVG with text:', text, 'size:', textSize));
     const svg = `
         <svg
             width="500"
@@ -45,9 +49,11 @@ export const config = {
 };
 
 const parseParamInt = (param: string | number | string[], base = '0') => {
-    workerLog.info('parseParamInt input:', {param, base});
+    
+    
+    Context.current().log.info(formatLog('parseParamInt input:', {param, base}));
     const result = Math.round(parseFloat((param as string) ?? base));
-    workerLog.info('parseParamInt result:', result);
+    Context.current().log.info(formatLog('parseParamInt result:', result));
     return result;
 };
 
@@ -56,16 +62,20 @@ const parseParamInt = (param: string | number | string[], base = '0') => {
 // };
 
 const percentToPixels = (percent: number, pixel: number) => {
-    workerLog.info('percentToPixels input:', {percent, pixel});
+    
+    
+    Context.current().log.info(formatLog('percentToPixels input:', {percent, pixel}));
     const result = Math.round((percent * pixel) / 100);
-    workerLog.info('percentToPixels result:', result);
+    Context.current().log.info(formatLog('percentToPixels result:', result));
     return result;
 };
 
 const isFile = (file: File | File[]): file is File => {
-    workerLog.info('isFile check:', file);
+    
+    
+    Context.current().log.info(formatLog('isFile check:', file));
     const result = (file as File).filepath !== undefined;
-    workerLog.info('isFile result:', result);
+    Context.current().log.info(formatLog('isFile result:', result));
     return result;
 };
 
@@ -86,10 +96,13 @@ async function cropMain({
     time: string;
     ratio?: number;
 }) {
-    workerLog.info('cropMain START', {imgPath, params, folderPath, fileName, index, time, ratio});
+    
+    
+    
+    Context.current().log.info(formatLog('cropMain START', {imgPath, params, folderPath, fileName, index, time, ratio}));
 
     const rotation = parseParamInt(params.rotation);
-    workerLog.info('Rotation value:', rotation);
+    Context.current().log.info(formatLog('Rotation value:', rotation));
 
     const cropInfo = {
         left: params.x ? parseParamInt(params.x) : 0,
@@ -97,77 +110,77 @@ async function cropMain({
         width: params.width ? parseParamInt(params.width) : 0,
         height: params.height ? parseParamInt(params.height) : 0,
     };
-    workerLog.info('Initial cropInfo:', cropInfo);
+    Context.current().log.info(formatLog('Initial cropInfo:', cropInfo));
 
     const width = parseParamInt(params.baseWidth, '100');
     const height = parseParamInt(params.baseHeight, '100');
-    workerLog.info('Target dimensions:', {width, height});
+    Context.current().log.info(formatLog('Target dimensions:', {width, height}));
 
     try {
-        workerLog.info('Loading image from path:', imgPath);
+        Context.current().log.info(formatLog('Loading image from path:', imgPath));
         const treatingImage = sharp(imgPath);
-        workerLog.info('Getting metadata...');
+        Context.current().log.info(formatLog('Getting metadata...'));
         const metadata = await treatingImage.metadata();
-        workerLog.info('Image metadata:', metadata);
+        Context.current().log.info(formatLog('Image metadata:', metadata));
 
         const {width: widthPixel = 0, height: heightPixel = 0} = metadata;
-        workerLog.info('Image dimensions:', {widthPixel, heightPixel});
+        Context.current().log.info(formatLog('Image dimensions:', {widthPixel, heightPixel}));
 
         if ((!params.x || !params.y || !params.width || !params.height) && ratio) {
-            workerLog.info('Calculating crop dimensions with ratio:', ratio);
+            Context.current().log.info(formatLog('Calculating crop dimensions with ratio:', ratio));
             cropInfo.width = widthPixel;
             if (heightPixel < widthPixel / ratio) {
-                workerLog.info('Height limited crop calculation');
+                Context.current().log.info(formatLog('Height limited crop calculation'));
                 cropInfo.height = heightPixel;
                 cropInfo.width = heightPixel * ratio;
             } else {
-                workerLog.info('Width limited crop calculation');
+                Context.current().log.info(formatLog('Width limited crop calculation'));
                 cropInfo.height = widthPixel / ratio;
             }
 
             cropInfo.left = (widthPixel - cropInfo.width) / 2;
             cropInfo.top = (heightPixel - cropInfo.height) / 2;
-            workerLog.info('Centered crop position:', {left: cropInfo.left, top: cropInfo.top});
+            Context.current().log.info(formatLog('Centered crop position:', {left: cropInfo.left, top: cropInfo.top}));
 
             cropInfo.left = (cropInfo.left / widthPixel) * 100;
             cropInfo.width = (cropInfo.width / widthPixel) * 100;
             cropInfo.height = (cropInfo.height / heightPixel) * 100;
             cropInfo.top = (cropInfo.top / heightPixel) * 100;
-            workerLog.info('Crop dimensions in percentage:', cropInfo);
+            Context.current().log.info(formatLog('Crop dimensions in percentage:', cropInfo));
         }
 
-        workerLog.info('Metadata and crop info:', {widthPixel, heightPixel, ...cropInfo});
+        Context.current().log.info(formatLog('Metadata and crop info:', {widthPixel, heightPixel, ...cropInfo}));
 
-        workerLog.info('Applying rotation:', rotation);
+        Context.current().log.info(formatLog('Applying rotation:', rotation));
         treatingImage.rotate(rotation);
 
-        workerLog.info('Converting to buffer and loading image...');
+        Context.current().log.info(formatLog('Converting to buffer and loading image...'));
         const imageBuffer = await treatingImage.toBuffer();
-        workerLog.info('Buffer size:', imageBuffer.length);
+        Context.current().log.info(formatLog('Buffer size:', imageBuffer.length));
         await sharp(imageBuffer).metadata();
 
-        workerLog.info('Converting percentage to pixels for crop');
+        Context.current().log.info(formatLog('Converting percentage to pixels for crop'));
         cropInfo.left = percentToPixels(cropInfo.left, widthPixel);
         cropInfo.width = percentToPixels(cropInfo.width, widthPixel);
         cropInfo.top = percentToPixels(cropInfo.top, heightPixel);
         cropInfo.height = percentToPixels(cropInfo.height, heightPixel);
-        workerLog.info('Final crop dimensions in pixels:', cropInfo);
+        Context.current().log.info(formatLog('Final crop dimensions in pixels:', cropInfo));
 
-        workerLog.info('Cropping with dimensions:', cropInfo);
-        workerLog.info('Target resize dimensions:', {width, height});
+        Context.current().log.info(formatLog('Cropping with dimensions:', cropInfo));
+        Context.current().log.info(formatLog('Target resize dimensions:', {width, height}));
         const treatingImageCropped = treatingImage.extract(cropInfo);
         const finalFilePath = resolve(
             folderPath,
             new Date().toISOString() + '-' + fileName + '.png',
         );
-        workerLog.info('Final image will be saved to:', finalFilePath);
+        Context.current().log.info(formatLog('Final image will be saved to:', finalFilePath));
 
-        workerLog.info('Preparing SVG overlays');
+        Context.current().log.info(formatLog('Preparing SVG overlays'));
         const textSvg = getSvg(fileName, '36px');
         const indexSvg = getSvg(index, '36px');
         const timeSvg = getSvg(time, '36px');
 
-        workerLog.info('Compositing and saving image...');
+        Context.current().log.info(formatLog('Compositing and saving image...'));
         await treatingImageCropped
             .composite(
                 [
@@ -192,28 +205,30 @@ async function cropMain({
             .png()
             .toFile(finalFilePath);
 
-        workerLog.info('Image saved successfully to:', finalFilePath);
+        Context.current().log.info(formatLog('Image saved successfully to:', finalFilePath));
         return finalFilePath;
     } catch (error) {
-        workerLog.error('Error in cropMain function:', error);
+        Context.current().log.error(formatLog('Error in cropMain function:', error));
         throw error;
     }
 }
 
 export const crop = async (req: Request, res: Response) => {
+    
+    
     try {
-        workerLog.info('crop endpoint START', {
+        Context.current().log.info(formatLog('crop endpoint START', {
             query: req.query,
             method: req.method,
             url: req.url,
             headers: req.headers,
-        });
+        }));
 
         const tokenId = req.query.tokenId as string;
-        workerLog.info('Token ID:', tokenId);
+        Context.current().log.info(formatLog('Token ID:', tokenId));
 
         if (!tokenId) {
-            workerLog.info('Missing tokenId, returning 404');
+            Context.current().log.info(formatLog('Missing tokenId, returning 404'));
             res.status(404).json({
                 ok: false,
                 message: 'tokenId is not provided',
@@ -223,65 +238,65 @@ export const crop = async (req: Request, res: Response) => {
         }
 
         const requestName = new Date().toISOString().replace(/[^0-9]/g, '');
-        workerLog.info('Generated requestName:', requestName);
+        Context.current().log.info(formatLog('Generated requestName:', requestName));
 
         const folderPath = resolve('./assets/output', requestName);
-        workerLog.info('Creating output folder:', folderPath);
+        Context.current().log.info(formatLog('Creating output folder:', folderPath));
         mkdirSync(folderPath, {recursive: true});
 
-        workerLog.info('Initializing form parser');
+        Context.current().log.info(formatLog('Initializing form parser'));
         const form = new IncomingForm({multiples: true});
-        workerLog.info('Form parser options:', {multiples: true});
+        Context.current().log.info(formatLog('Form parser options:', {multiples: true}));
 
         // eslint-disable-next-line complexity
         form.parse(req, async function (err, fields, files) {
-            workerLog.info('Form parsing complete', {
+            Context.current().log.info(formatLog('Form parsing complete', {
                 error: err,
                 fieldCount: Object.keys(fields).length,
                 filesCount: Object.keys(files).length,
-            });
+            }));
 
             if (err) {
-                workerLog.error('Error parsing form data:', err);
+                Context.current().log.error(formatLog('Error parsing form data:', err))
                 res.status(500).json({error: 'Error parsing form data'});
                 return;
             }
 
-            workerLog.info('Fields:', fields);
-            workerLog.info('Template:', req.query.template);
+            Context.current().log.info(formatLog('Fields:', fields));
+            Context.current().log.info(formatLog('Template:', req.query.template));
 
             const templateName = req.query.template as string;
-            workerLog.info('Using template:', templateName);
+            Context.current().log.info(formatLog('Using template:', templateName));
 
             if (!templates[templateName]) {
-                workerLog.error('Template not found:', templateName);
+                Context.current().log.error(formatLog('Template not found:', templateName));
                 res.status(400).json({error: 'Template not found'});
                 return;
             }
 
             const images = templates[templateName].images;
-            workerLog.info('Template images configuration:', images);
+            Context.current().log.info(formatLog('Template images configuration:', images));
 
             const fileSaved: string[] = [];
             let index = 0;
-            workerLog.info('Processing files from form data');
+            Context.current().log.info(formatLog('Processing files from form data'));
 
             for (const fileName in files) {
                 if (Object.prototype.hasOwnProperty.call(files, fileName)) {
-                    workerLog.info(`Processing file: ${fileName}, index: ${index}`);
+                    Context.current().log.info(`Processing file: ${fileName}, index: ${index}`);
 
                     if (images.length <= index) {
-                        workerLog.info(
+                        Context.current().log.info(
                             `Skipping file ${fileName} as index ${index} exceeds images length ${images.length}`,
                         );
                         continue;
                     }
 
                     const f = files[fileName]?.[0];
-                    workerLog.info('File object:', f);
+                    Context.current().log.info(formatLog('File object:', f));
 
                     if (f && isFile(f)) {
-                        workerLog.info(
+                        Context.current().log.info(
                             `Processing file: ${f.originalFilename}, size: ${f.size}, type: ${f.mimetype}`,
                         );
 
@@ -289,7 +304,7 @@ export const crop = async (req: Request, res: Response) => {
                             baseWidth: req.query.width as string,
                             baseHeight: req.query.height as string,
                         };
-                        workerLog.info('Initial params:', params);
+                        Context.current().log.info(formatLog('Initial params:', params));
 
                         for (const param in req.query) {
                             if (
@@ -301,12 +316,12 @@ export const crop = async (req: Request, res: Response) => {
                                 const asNumber = Number(asString);
                                 const paramKey = param.split(`${f.originalFilename}.`)[1];
                                 params[paramKey] = isNaN(asNumber) ? asString : asNumber;
-                                workerLog.info(`Added param ${paramKey}:`, params[paramKey]);
+                                Context.current().log.info(formatLog(`Added param ${paramKey}:`, params[paramKey]));
                             }
                         }
 
-                        workerLog.info('Final params for cropMain:', params);
-                        workerLog.info('Calling cropMain for file:', fileName);
+                        Context.current().log.info(formatLog('Final params for cropMain:', params));
+                        Context.current().log.info(formatLog('Calling cropMain for file:', fileName));
 
                         const finalFilePath = await cropMain({
                             imgPath: f.filepath,
@@ -317,21 +332,21 @@ export const crop = async (req: Request, res: Response) => {
                             time: images[index]?.loop?.toString() || '0',
                         });
 
-                        workerLog.info('cropMain returned filepath:', finalFilePath);
+                        Context.current().log.info(formatLog('cropMain returned filepath:', finalFilePath));
                         fileSaved.push(finalFilePath);
                         index++;
                     }
                 }
             }
 
-            workerLog.info('All files processed. Total processed:', fileSaved.length);
+            Context.current().log.info(formatLog('All files processed. Total processed:', fileSaved.length));
 
             const ratio = Number(req.query.width) / Number(req.query.height);
-            workerLog.info('Calculated ratio:', ratio);
+            Context.current().log.info(formatLog('Calculated ratio:', ratio));
 
             // eslint-disable-next-line no-negated-condition
             if (!req.query.paidUser) {
-                workerLog.info('User is not a paid user, adding ending image');
+                Context.current().log.info(formatLog('User is not a paid user, adding ending image'));
 
                 const endingFile =
                     ratio < 1
@@ -340,9 +355,9 @@ export const crop = async (req: Request, res: Response) => {
                         ? resolve('./assets/images/final-horizontal.png')
                         : resolve('./assets/images/final-horizontal.png');
 
-                workerLog.info('Selected ending file:', endingFile);
+                Context.current().log.info(formatLog('Selected ending file:', endingFile));
 
-                workerLog.info('Processing ending image with cropMain');
+                Context.current().log.info(formatLog('Processing ending image with cropMain'));
                 const finalFilePath = await cropMain({
                     imgPath: endingFile,
                     params: {
@@ -356,28 +371,28 @@ export const crop = async (req: Request, res: Response) => {
                     ratio,
                 });
 
-                workerLog.info('Ending image saved to:', finalFilePath);
+                Context.current().log.info(formatLog('Ending image saved to:', finalFilePath));
                 fileSaved.push(finalFilePath);
             } else {
-                workerLog.info('User is a paid user, skipping ending image');
+                Context.current().log.info(formatLog('User is a paid user, skipping ending image'));
             }
 
-            workerLog.info('Starting video creation');
+            Context.current().log.info(formatLog('Starting video creation'));
             const width = parseParamInt((req.query.width as string) || '');
             const height = parseParamInt((req.query.height as string) || '');
 
-            workerLog.info('Video dimensions:', {width, height});
-            workerLog.info('Calling createVideo with params:', {
+            Context.current().log.info(formatLog('Video dimensions:', {width, height}));
+            Context.current().log.info(formatLog('Calling createVideo with params:', {
                 imageCount: fileSaved.length,
                 folder: folderPath,
                 template: templateName,
                 width,
                 height,
                 paidUser: Boolean(req.query.paidUser),
-            });
+            }));
 
             try {
-                workerLog.info('Creating video');
+                Context.current().log.info(formatLog('Creating video'));
                 const outputFilePath = await createVideo({
                     imageFiles: fileSaved,
                     folder: folderPath,
@@ -387,25 +402,25 @@ export const crop = async (req: Request, res: Response) => {
                     paidUser: Boolean(req.query.paidUser),
                 });
 
-                workerLog.info('Video created successfully at:', outputFilePath);
+                Context.current().log.info(formatLog('Video created successfully at:', outputFilePath));
 
-                workerLog.info('Reading file buffer for upload');
+                Context.current().log.info(formatLog('Reading file buffer for upload'));
                 const fileBuffer = readFileSync(outputFilePath);
-                workerLog.info('File buffer size:', fileBuffer.length);
+                Context.current().log.info(formatLog('File buffer size:', fileBuffer.length));
 
                 const storagePath = `${tokenId}/${requestName}-output.mp4`;
-                workerLog.info('Storage path for upload:', storagePath);
+                Context.current().log.info(formatLog('Storage path for upload:', storagePath));
 
                 const fileRef = ref(storage, storagePath);
-                workerLog.info('Uploading to Firebase Storage');
+                Context.current().log.info(formatLog('Uploading to Firebase Storage'));
 
                 await uploadBytes(fileRef, fileBuffer);
-                workerLog.info('Upload complete, getting download URL');
+                Context.current().log.info(formatLog('Upload complete, getting download URL'));
 
                 const downloadURL = await getDownloadURL(fileRef);
-                workerLog.info('Download URL:', downloadURL);
+                Context.current().log.info(formatLog('Download URL:', downloadURL));
 
-                workerLog.info('Uploading metadata to Firestore');
+                Context.current().log.info(formatLog('Uploading metadata to Firestore'));
                 const compiledFileRef = collection(firestore, 'videos', tokenId, 'items');
 
                 const documentData = {
@@ -416,21 +431,21 @@ export const crop = async (req: Request, res: Response) => {
                     externalLink: '',
                     createdAt: new Date(),
                 };
-                workerLog.info('Document data:', documentData);
+                Context.current().log.info(formatLog('Document data:', documentData));
 
                 const docRef = await addDoc(compiledFileRef, documentData);
-                workerLog.info('Document added to Firestore with ID:', docRef.id);
+                Context.current().log.info(formatLog('Document added to Firestore with ID:', docRef.id));
 
-                workerLog.info('Process completed successfully');
+                Context.current().log.info(formatLog('Process completed successfully'));
 
-                workerLog.info('Sending response to client: check your profile in a few minutes');
+                Context.current().log.info(formatLog('Sending response to client: check your profile in a few minutes'));
                 res.status(200).json({message: 'check your profile in a few minutes'});
             } catch (error) {
-                workerLog.error('Error during video creation or upload:', error);
+                Context.current().log.error(formatLog('Error during video creation or upload:', error));
             }
         });
     } catch (error) {
-        workerLog.error('Unhandled error in crop endpoint:', error);
+        Context.current().log.error(formatLog('Unhandled error in crop endpoint:', error));
         res.status(500).json({error: 'Internal server error'});
     }
 };
