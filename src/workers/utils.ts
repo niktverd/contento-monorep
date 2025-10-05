@@ -59,7 +59,7 @@ export const  createWorkerWithRetry = async ({name, ...options}: CreateWorkerWit
                 // maxConcurrentWorkflowTaskExecutions,
                 ...options,
                 namespace: process.env.TEMPORAL_NAMESPACE || 'default',
-                workflowsPath: require.resolve('src/workflows'),
+                workflowsPath: require.resolve('../workflows'),
             });
 
             console.log(`✅ ${name} worker created successfully`);
