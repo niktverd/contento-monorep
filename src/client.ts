@@ -1,5 +1,4 @@
 import { Client, Connection } from "@temporalio/client";
-import { publishingScheduleWorkflow } from "./workflows";
 
 let temporalClient: Client | null = null;
 

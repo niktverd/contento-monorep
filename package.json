@@ -7,7 +7,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "start": "ts-node -r tsconfig-paths/register src/worker.ts",
+    "start": "ts-node -r tsconfig-paths/register src/workers/index.ts",
     "start.watch": "nodemon src/worker.ts",
     "workflow": "ts-node src/run-workflow.ts",
     "test": "mocha --exit --require ts-node/register --require source-map-support/register src/mocha/*.test.ts"

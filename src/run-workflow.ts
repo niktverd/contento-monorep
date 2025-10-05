@@ -1,10 +1,10 @@
 import { getTemporalClient } from "./client";
-import { publishingScheduleWorkflow } from "./workflows";
+// import { publishingScheduleWorkflow } from "./workflows";
 
 async function run() {
   const client = await getTemporalClient();
 
-  const handle = await client.workflow.start(publishingScheduleWorkflow, {
+  const handle = await client.workflow.start('publishingScheduleWorkflow', {
     taskQueue: 'default',
     // type inference works! args: [name: string]
     args: [],
