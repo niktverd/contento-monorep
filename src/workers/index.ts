@@ -6,6 +6,7 @@ import {
     publishInstagramVideoWorkerOptions,
     schedulePublishInstagramVideoWorkerOptions,
 } from './worker-options';
+import { runScheduleWorkflow } from 'src/run-schedule-workflow';
 
 const main = async () => {
     const address = process.env.TEMPORAL_ADDRESS;
@@ -28,6 +29,12 @@ const main = async () => {
     })
 
     await Promise.all(promises);
+
+    try {
+        await runScheduleWorkflow();
+    } catch(err) {
+        console.error(err);
+    }
 };
 
 

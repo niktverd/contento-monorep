@@ -5,6 +5,7 @@ import {RunPublishingActivityArgs, RunPublishingActivityResponse} from '#types';
 
 import { Context } from '@temporalio/activity';
 import { formatLog } from 'src/utils/log';
+import { PROCESS_VIDEO_PUBLISHING_NAME } from 'src/queues';
 
 // eslint-disable-next-line valid-jsdoc
 /**
@@ -16,7 +17,7 @@ export async function runPublishingActivity(
     
     
     const client = await getTemporalClient();
-    const taskQueue = 'process-video-publishing';
+    const taskQueue = PROCESS_VIDEO_PUBLISHING_NAME;
 
     const {preparedVideo, account} = input;
 
