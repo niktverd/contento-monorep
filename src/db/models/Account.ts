@@ -2,8 +2,7 @@ import {BaseModel} from './BaseModel';
 import {InstagramLocation} from './InstagramLocation';
 import Scenario from './Scenario';
 
-import {IAccount, IInstagramLocation} from '#src/types';
-import {IScenario} from '#types';
+import {IAccount, IInstagramLocation, IScenario} from '#types';
 
 export class Account extends BaseModel implements IAccount {
     id!: number;

@@ -9,8 +9,8 @@ import {
     UpdateCloudRunScenarioExecutionParams,
     UpdateCloudRunScenarioExecutionResponse,
 } from '#schemas/handlers/cloudRunScenarioExecution';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
+import {ApiFunctionPrototype} from '#types';
 
 export const createCloudRunScenarioExecution: ApiFunctionPrototype<
     CloudRunScenarioExecutionParams,

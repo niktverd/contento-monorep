@@ -1,7 +1,6 @@
 import {BaseModel} from './BaseModel';
 
-import {ICloudRunScenarioExecution} from '#schemas/models/cloudRunScenarioExecution';
-import {CloudRunScenarioExecutionStatusEnum} from '#types';
+import {CloudRunScenarioExecutionStatusEnum, ICloudRunScenarioExecution} from '#types';
 
 export class CloudRunScenarioExecution extends BaseModel implements ICloudRunScenarioExecution {
     id!: number;

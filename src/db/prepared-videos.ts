@@ -4,7 +4,7 @@ import {OrderByDirection} from 'objection';
 import {PreparedVideo} from './models/PreparedVideo';
 import {assertSameOrg, scopeByOrg} from './utils';
 
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {
     CreatePreparedVideoParamsSchema,
     UpdatePreparedVideoParamsSchema,

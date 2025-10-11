@@ -1,6 +1,6 @@
 import {BaseModel} from './BaseModel';
 
-import {IInstagramLocation} from '#src/types';
+import {IInstagramLocation} from '#types';
 
 export class InstagramLocation extends BaseModel implements IInstagramLocation {
     id!: number;

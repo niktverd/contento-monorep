@@ -4,9 +4,11 @@ import {TransactionOrKnex} from 'objection';
 import {z} from 'zod';
 
 import knexInstance from '#src/config/database';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
+import {ApiFunctionPrototype} from '#types';
 import {log, logError} from '#utils';
+
+const {error: stdErrorLog} = console;
 
 const db: Knex = knexInstance;
 
@@ -45,6 +47,7 @@ export const initializeDb = async (): Promise<Knex> => {
 
         // Check if migrations table exists and get latest migration
         const migrationsExist = await db.schema.hasTable('knex_migrations');
+
         let latestMigration = 'No migrations applied';
 
         if (migrationsExist) {
@@ -65,6 +68,7 @@ export const initializeDb = async (): Promise<Knex> => {
 
         return db;
     } catch (error) {
+        stdErrorLog('Failed to initialize database connection:', error);
         logError('Failed to initialize database connection:', error);
         throw error;
     }

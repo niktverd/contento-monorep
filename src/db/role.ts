@@ -1,6 +1,7 @@
 import {Role} from './models/Role';
 
 import {
+    ApiFunctionPrototype,
     CreateRoleParams,
     CreateRoleResponse,
     DeleteRoleParams,
@@ -12,7 +13,6 @@ import {
     UpdateRoleParams,
     UpdateRoleResponse,
 } from '#src/types';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createRole: ApiFunctionPrototype<CreateRoleParams, CreateRoleResponse> = async (

@@ -96,7 +96,8 @@ module.exports = {
                 ? connectionConfig
                 : {
                       ...connectionConfig,
-                      ssl: {rejectUnauthorized: false},
+                      //   ssl: {rejectUnauthorized: false},
+                      ssl: false,
                   },
         migrations: {
             directory: './src/db/migrations',

@@ -7,6 +7,7 @@ import UserOrganizationRole from '#models/UserOrganizationRole';
 import {
     AddUserWithRoleToOrganizationParams,
     AddUserWithRoleToOrganizationResponse,
+    ApiFunctionPrototype,
     CreateOrganizationParams,
     CreateOrganizationResponse,
     DeleteOrganizationParams,
@@ -24,7 +25,6 @@ import {
     UpdateOrganizationParams,
     UpdateOrganizationResponse,
 } from '#src/types';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createOrganization: ApiFunctionPrototype<

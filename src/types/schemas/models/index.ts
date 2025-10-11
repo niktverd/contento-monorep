@@ -9,3 +9,4 @@ export * from './organization';
 export * from './role';
 export * from './userOrganizationRole';
 export * from './organizationSender';
+export * from './cloudRunScenarioExecution';

@@ -5,6 +5,7 @@ import {Account} from './models/Account';
 import {assertSameOrg} from './utils';
 
 import {
+    ApiFunctionPrototype,
     CreateAccountParams,
     CreateAccountResponse,
     DeleteAccountParams,
@@ -18,7 +19,6 @@ import {
     UpdateAccountParams,
     UpdateAccountResponse,
 } from '#src/types';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createAccount: ApiFunctionPrototype<

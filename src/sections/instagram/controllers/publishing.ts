@@ -9,7 +9,7 @@ import {
 } from '../components';
 
 import {getAllAccounts, wrapper} from '#src/db';
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {
     PublishIntagramV4PostParams,
     PublishIntagramV4PostResponse,

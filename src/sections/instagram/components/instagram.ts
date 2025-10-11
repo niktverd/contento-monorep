@@ -24,7 +24,7 @@ import {
     getOnePreparedVideo,
     updateInstagramMediaContainer,
 } from '#src/db';
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {ThrownError} from '#src/utils/error';
 import {IAccount, InstagramLocationSource, MediaPostModelOld} from '#types';
 import {

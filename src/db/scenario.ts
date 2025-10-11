@@ -1,6 +1,6 @@
 import {Scenario} from './models/Scenario';
 
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {
     CreateScenarioParamsSchema,
     UpdateScenarioParamsSchema,

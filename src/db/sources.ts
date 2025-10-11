@@ -2,7 +2,7 @@ import {OrderByDirection} from 'objection';
 
 import {Source} from './models/Source';
 
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {
     CreateSourceParamsSchema,
     GetAllSourcesParamsSchema,

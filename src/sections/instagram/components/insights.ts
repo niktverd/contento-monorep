@@ -5,7 +5,7 @@ import {getInstagramInsights} from './aux';
 import {firestore} from '#config/firebase';
 import {Collection} from '#src/constants';
 import {getAllAccounts} from '#src/db';
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {
     UiGetInsightsInstagramReportParams,
     UiGetInsightsInstagramReportResponse,

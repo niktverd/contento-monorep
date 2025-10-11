@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {db, getAccountById} from '#src/db';
-import {IResponse} from '#src/types/common';
+import {IResponse} from '#src/types';
 import {
     GetAllCommentsForPostsParams,
     GetAllCommentsForPostsResponse,

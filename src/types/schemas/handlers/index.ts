@@ -10,3 +10,4 @@ export * from './uiCommon';
 export * from './organization';
 export * from './role';
 export * from './organizationSenders';
+export * from './publishInstagram';

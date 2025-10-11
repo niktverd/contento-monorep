@@ -16,7 +16,7 @@ import {
     TemporalHealthParams,
     TemporalHealthResponse,
 } from '#schemas/handlers/temporal';
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {log} from '#src/utils/logging';
 
 // Handler functions

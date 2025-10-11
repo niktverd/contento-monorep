@@ -74,7 +74,7 @@
 | podman   | package.json | error    |
 | open     | package.json | error    |
 
-## Unresolved imports (17)
+## Unresolved imports (16)
 
 | Name                                        | Location                                                    | Severity |
 | :------------------------------------------ | :---------------------------------------------------------- | :------- |
@@ -87,7 +87,6 @@
 | #schemas/handlers/publishInstagram          | src/sections/instagram/components/instagram.ts:18:9         | error    |
 | #schemas/models/instagram-location          | src/types/schemas/handlers/instagramLocation.ts:3:9         | error    |
 | #schemas/models/preparedVideo               | src/types/schemas/handlers/preparedVideo.ts:10:9            | error    |
-| #schemas/models/cloudRunScenarioExecution   | src/db/models/CloudRunScenarioExecution.ts:3:9              | error    |
 | #schemas/models                             | src/types/schemas/handlers/organization.ts:5:9              | error    |
 | #schemas/models/scenario                    | src/types/schemas/handlers/scenario.ts:3:9                  | error    |
 | #schemas/models/account                     | src/types/schemas/handlers/account.ts:5:9                   | error    |
@@ -96,14 +95,13 @@
 | #schemas/models/user                        | src/types/schemas/handlers/user.ts:3:9                      | error    |
 | #schemas/models                             | src/types/schemas/handlers/role.ts:3:9                      | error    |
 
-## Unused exports (24)
+## Unused exports (23)
 
 | Name                                        | Location                                                                             | Severity |
 | :------------------------------------------ | :----------------------------------------------------------------------------------- | :------- |
 | getLimitedInstagramMediaContainersGet       | src/sections/instagram-media-container/instagram-media-container.controller.ts:62:14 | error    |
 | logStreamsInfo                              | src/sections/cloud-run/components/video/ffprobe.helpers.ts:80:23                     | error    |
 | InstagramMediaContainersPermissions         | src/sections/instagram-media-container/routes.ts:14:14                               | error    |
-| PublishIntagramV4ResponseSchema             | src/types/schemas/handlers/publishInstagram.ts:4:14                                  | error    |
 | routes                                      | src/types/routes/instagramMediaContainer.ts:6:14                                     | error    |
 | default                                     | src/db/models/InstagramMediaContainer.ts:50:8                                        | error    |
 | GetWorkflowStatusResponseSchema             | src/types/schemas/handlers/temporal.ts:26:14                                         | error    |
@@ -139,7 +137,7 @@
 | SourcesPermissions                    | src/sections/source/routes.ts:19:13                                   | error    |
 | UserPermissions                       | src/sections/users/routes.ts:24:13                                    | error    |
 | RolePermissions                       | src/sections/role/routes.ts:18:13                                     | error    |
-| RequestContextStore                   | src/types/common.ts:44:13                                             | error    |
+| RequestContextStore                   | src/types/common.ts:31:13                                             | error    |
 
 ## Unused exported enum members (12)
 

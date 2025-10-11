@@ -5,7 +5,7 @@ import Objection from 'objection';
 import {createSource, wrapper} from '#src/db';
 import {createOrganizationSender, getOrganizationIdsBySenderId} from '#src/db/organizationSenders';
 import {startVideoDownloadingWorkflow} from '#src/sections/temporal/client';
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {MessageWebhookV3Params, MessageWebhookV3Response} from '#src/types/instagramApi';
 import {MessageWebhookV3Schema} from '#src/types/schemas/handlers';
 import {ThrownError} from '#src/utils/error';

@@ -3,7 +3,7 @@ import {omit} from 'lodash';
 import {InstagramMediaContainer} from './models/InstagramMediaContainer';
 import {assertSameOrg, scopeByOrg} from './utils';
 
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {ThrownError} from '#src/utils/error';
 import {
     CreateInstagramMediaContainerParams,

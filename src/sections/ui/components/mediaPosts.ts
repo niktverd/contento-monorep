@@ -24,7 +24,7 @@ import {
     createVideoOfFrame,
     normalizeVideo,
 } from '#src/sections/cloud-run/components/video';
-import {IResponse} from '#src/types/common';
+import {IResponse} from '#src/types';
 import {
     ConvertImageToVideoParams,
     ConvertImageToVideoResponse,

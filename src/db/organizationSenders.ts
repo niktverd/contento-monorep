@@ -1,5 +1,6 @@
 import {OrganizationSender} from '#models/OrganizationSenders';
 import {
+    ApiFunctionPrototype,
     CreateOrganizationSenderParams,
     CreateOrganizationSenderResponse,
     DeleteOrganizationSenderParams,
@@ -9,7 +10,6 @@ import {
     GetOrganizationSendersByOrganizationIdParams,
     GetOrganizationSendersByOrganizationIdResponse,
 } from '#src/types';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const getOrganizationIdsBySenderId: ApiFunctionPrototype<

@@ -13,7 +13,7 @@ import {
 
 import {InstagramLocation} from './models/InstagramLocation';
 
-import {ApiFunctionPrototype} from '#src/types/common';
+import {ApiFunctionPrototype} from '#src/types';
 import {ThrownError} from '#src/utils/error';
 
 export const createInstagramLocation: ApiFunctionPrototype<

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {User} from '#src/db/models';
 import {
+    ApiFunctionPrototype,
     CreateUserParams,
     CreateUserParamsSchema,
     CreateUserResponse,
@@ -23,7 +24,6 @@ import {
     UpdateUserParamsSchema,
     UpdateUserResponse,
 } from '#src/types';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {ThrownError} from '#src/utils/error';
 
 export const createUser: ApiFunctionPrototype<CreateUserParams, CreateUserResponse> = async (

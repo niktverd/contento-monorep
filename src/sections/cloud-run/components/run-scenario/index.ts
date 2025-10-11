@@ -7,12 +7,11 @@ import {getVideoDuration} from '../video';
 
 import {GetCloudRunScenarioExecutionResponse} from '#schemas/handlers/cloudRunScenarioExecution';
 import {ICloudRunScenarioExecution} from '#schemas/models/cloudRunScenarioExecution';
-import {IAccount, IScenario, ISource} from '#src/types';
+import {ApiFunctionPrototype, IAccount, IScenario, ISource} from '#src/types';
 import {
     CloudRunCreateScenarioVideoParams,
     CloudRunCreateScenarioVideoResponse,
 } from '#src/types/cloud-run';
-import {ApiFunctionPrototype} from '#src/types/common';
 import {CloudRunScenarioExecutionStatusEnum, ScenarioType} from '#src/types/enums';
 import {ThrownError} from '#src/utils/error';
 import {fetchGet, fetchPatch, fetchPost} from '#src/utils/fetchHelpers';
