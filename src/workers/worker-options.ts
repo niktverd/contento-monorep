@@ -1,6 +1,6 @@
 import { createInstagramContainer, downloadVideo, getAccountsActivity, getOrganizationsActivity, getRandomPreparedVideForAccountActivity, processVideo, publishInstagramPost, runProcessingActivity, runPublishingActivity } from "src/activities";
 import { CreateWorkerWithRetryOptions } from "./types";
-import { PROCESS_VIDEO_PUBLISHING_NAME, SCHEDULE_NAME } from "src/queues";
+import { DOWNLOADING_NAME, PROCESS_VIDEO_NAME, PROCESS_VIDEO_PUBLISHING_NAME, SCHEDULE_NAME } from "src/queues";
 
 type WorkerOption = Omit<CreateWorkerWithRetryOptions, 'connection'>;
 
@@ -8,7 +8,7 @@ export const downloadWorkerOptions: WorkerOption = {
     name: 'downloadWorker',
     maxConcurrentActivityTaskExecutions: 15,
     maxConcurrentWorkflowTaskExecutions: 25,
-    taskQueue: 'download-workflow-queue',
+    taskQueue: DOWNLOADING_NAME,
     activities: {
         downloadVideo,
         getAccountsActivity,
@@ -17,10 +17,10 @@ export const downloadWorkerOptions: WorkerOption = {
 };
 
 export const processInstagramVideoWorkerOptions: WorkerOption = {
-    name: 'processInstagramVideoWorker',
+    name: 'processVideoWorker',
     maxConcurrentActivityTaskExecutions: 10,
     maxConcurrentWorkflowTaskExecutions: 15,
-    taskQueue: PROCESS_VIDEO_PUBLISHING_NAME,
+    taskQueue: PROCESS_VIDEO_NAME,
     activities: {
         processVideo,
     },
@@ -30,7 +30,7 @@ export const publishInstagramVideoWorkerOptions: WorkerOption = {
     name: 'publishInstagramVideoWorker',
     maxConcurrentActivityTaskExecutions: 20,
     maxConcurrentWorkflowTaskExecutions: 20,
-    taskQueue: 'publish-instagram-video-queue',
+    taskQueue: PROCESS_VIDEO_PUBLISHING_NAME,
     activities: {
         createInstagramContainer,
         publishInstagramPost,
