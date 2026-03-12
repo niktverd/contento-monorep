@@ -1,0 +1,10 @@
+dist
+build
+deploy
+node_modules
+i18n-keysets
+
+tests/playwright/.auth
+tests/playwright/artifacts
+tests/playwright-report
+tests/coverage

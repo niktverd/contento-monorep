@@ -1,0 +1,40 @@
+.main {
+    background-color: none;
+}
+
+.title {
+    margin-block: 32px;
+    font-size: 24px;
+}
+
+.submit {
+    margin-block-start: 48px;
+    width: 100%;
+}
+
+.inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.devider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.deviderWing {
+    flex-grow: 1;
+    min-height: 1px;
+    background-color: rgb(98, 98, 98);
+}
+
+.googleButton {
+    margin-block-start: 32px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 15px;
+}

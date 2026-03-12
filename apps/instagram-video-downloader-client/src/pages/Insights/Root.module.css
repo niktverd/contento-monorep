@@ -1,0 +1,49 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.navigationSection {
+    display: flex;
+    gap: 16px;
+}
+
+.navigationColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+}
+
+.mainContent {
+    display: flex;
+    gap: 16px;
+}
+
+.accountFiltersContainer {
+    min-width: 280px;
+}
+
+.chartContainer {
+    flex: 1;
+    color: #000;
+}
+
+.loadingContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+}
+
+.errorContainer {
+    padding: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.title {
+    color: #fff;
+    margin-bottom: 16px;
+}

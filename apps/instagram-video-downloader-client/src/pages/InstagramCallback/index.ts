@@ -1,0 +1,1 @@
+export {InstagramCallback} from './InstagramCallback';

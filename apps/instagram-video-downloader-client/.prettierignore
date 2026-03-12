@@ -1,0 +1,20 @@
+# System
+.idea
+.vscode
+.history
+
+# Build
+build
+dist
+
+# Generated
+common/i18n/keysets/*.json
+
+# tests
+tests/playwright/.auth
+tests/playwright/artifacts
+tests/playwright-report
+tests/coverage
+
+# i18n
+i18n-keysets

@@ -1,0 +1,8 @@
+.page {
+    width: 20%;
+    min-width: 400px;
+    margin-inline: auto;
+    padding: 48px;
+    background-color: #00000022;
+    border-radius: 32px;
+}

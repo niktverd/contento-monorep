@@ -1,0 +1,50 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.description {
+    margin-bottom: 16px;
+}
+
+.errorMessage {
+    color: #c62828;
+    margin-top: 8px;
+}
+
+.dataPreviewContainer {
+    margin-top: 16px;
+}
+
+.previewText {
+    padding: 16px;
+    border-radius: 4px;
+    max-height: 300px;
+    overflow: auto;
+    border: 1px solid #ddd;
+}
+
+.largePreviewText {
+    padding: 16px;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow: auto;
+    border: 1px solid #ddd;
+}
+
+.navigationContainer {
+    display: flex;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.marginBottom {
+    margin-bottom: 16px;
+}

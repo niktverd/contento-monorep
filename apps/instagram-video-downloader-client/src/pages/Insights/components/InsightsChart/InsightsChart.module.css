@@ -1,0 +1,22 @@
+.loadingContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    gap: 16px;
+}
+
+.emptyStateContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    gap: 8px;
+}
+
+.chartContainer {
+    height: 400px;
+    padding: 16px;
+}

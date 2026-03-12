@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "es5", // Цель компиляции: ES5 (поддерживается большинством браузеров)
+    "lib": [
+      "dom", // Включаем поддержку DOM API (для работы с браузером)
+      "esnext" // Включаем поддержку последних стандартов JavaScript
+    ],
+    "allowJs": true, // Разрешаем использовать JavaScript файлы (.js) в проекте
+    "skipLibCheck": true, // Пропускаем проверку файлов библиотек (ускоряет компиляцию)
+    "esModuleInterop": true, // Улучшаем совместимость с CommonJS модулями
+    "allowSyntheticDefaultImports": true, // Разрешаем импорты по умолчанию из модулей без default export
+    "strict": false, // Включаем строгий режим TypeScript (рекомендовано)
+    "forceConsistentCasingInFileNames": true, // Требуем согласованности регистра в именах файлов
+    "module": "esnext", // Используем ES модули
+    "moduleResolution": "node", // Разрешаем модули для bundler (Vite)
+    "resolveJsonModule": true, // Разрешаем импортировать JSON файлы
+    "isolatedModules": true, // Изолируем модули (улучшает производительность)
+    "noEmit": true, // Не генерируем JavaScript файлы (этим занимается Webpack)
+    "jsx": "react-jsx" // Указываем, что используется JSX (React)
+  },
+  "include": [
+    "src" // Указываем, какие файлы TypeScript нужно компилировать (в данном случае, все файлы в папке src)
+  ]
+}

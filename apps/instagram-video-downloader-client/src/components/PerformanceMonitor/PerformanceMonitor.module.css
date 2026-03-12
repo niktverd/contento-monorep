@@ -1,0 +1,71 @@
+.monitorCard {
+    padding: 16px;
+    margin: 16px 0;
+    max-width: 600px;
+}
+
+.controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.metricsContainer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 6px;
+    background-color: var(--g-color-base-generic-medium);
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.value {
+    font-weight: 600;
+}
+
+.warning {
+    color: var(--g-color-text-danger);
+}
+
+.statsContainer {
+    margin-top: 24px;
+}
+
+.memoryGraph {
+    display: flex;
+    align-items: flex-end;
+    height: 160px;
+    margin-top: 16px;
+    gap: 2px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--g-color-line-generic);
+}
+
+.graphBar {
+    min-width: 8px;
+    flex: 1;
+    background-color: var(--g-color-text-positive);
+    border-radius: 2px 2px 0 0;
+    transition: height 0.3s ease;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 32px;
+    margin-top: 16px;
+    border-radius: 6px;
+    background-color: var(--g-color-base-generic-medium);
+}

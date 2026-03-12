@@ -1,0 +1,61 @@
+.container {
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #000;
+    text-wrap: wrap;
+
+    margin-block-end: 24px;
+    overflow: hidden;
+}
+
+.sourceContainer {
+    display: flex;
+    max-height: 100vh;
+    gap: 20px;
+}
+
+.videoContainer {
+    height: 80vh;
+}
+
+.video {
+    height: 80vh;
+}
+
+.noVideo {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f0f0f0;
+    color: #666;
+    font-style: italic;
+}
+
+.data,
+.users,
+.sourceData {
+    background-color: #0001;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.field,
+.senderContainer,
+.ownerContainer {
+    background-color: #0001;
+    border-radius: 8px;
+    overflow: hidden;
+    padding: 16px;
+}
+
+.sourceData pre {
+    max-height: 300px;
+    overflow: auto;
+    background-color: #f5f5f5;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
