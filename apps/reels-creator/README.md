@@ -31,3 +31,5 @@ ffmpeg -i ./source/sound/third.mp4 -vn -acodec copy ./source/sound/third.aac
 ---
 
 Для подробной документации и production-интеграции — см. `instagram-dev.md` и комментарии в коде.
+
+
