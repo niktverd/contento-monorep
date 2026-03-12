@@ -1,0 +1,9 @@
+.toastContainer {
+    position: fixed;
+    inset-block-end: 20px;
+    inset-inline-end: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}

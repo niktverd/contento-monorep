@@ -1,0 +1,60 @@
+/* stylelint-disable csstools/use-logical */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(100px, 1fr)
+    ); /* Адаптируйте размеры под ваши нужды */
+    gap: 10px; /* Расстояние между элементами */
+}
+
+.item {
+    padding: 20px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    cursor: grab; /* Изменяет курсор, указывая на возможность перетаскивания */
+}
+
+.icon,
+.complete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon {
+    height: 100%;
+    padding: 0 8px;
+}
+
+.close-button,
+.complete-button {
+    display: flex;
+    border: 2px solid #fff;
+    background-color: #000;
+    border-radius: 8px;
+    color: #fff;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all ease 0.5s;
+}
+
+.complete-button:hover {
+    background-color: #070;
+}
+
+.close-button {
+    padding: 12px;
+    border-radius: 50%;
+}
+
+.close-button > .icon {
+    padding: 0;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}

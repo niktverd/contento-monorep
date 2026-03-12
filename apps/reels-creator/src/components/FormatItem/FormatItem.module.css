@@ -1,0 +1,58 @@
+/* stylelint-disable csstools/use-logical */
+
+.container {
+    overflow: hidden;
+    /* display: flex; */
+    align-items: center;
+    width: 250px;
+    aspect-ratio: calc(9 / 16);
+    margin: 12px;
+    border-radius: 16px;
+    border: 1px solid #acacac33;
+    position: relative;
+    flex-grow: 1;
+    background-color: #cccccc;
+}
+
+.content {
+    padding: 16px;
+    z-index: 2;
+    position: absolute;
+    right: 0;
+    top: 50%;
+}
+
+.button {
+    background-color: #000000;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    cursor: pointer;
+    /* padding: 16px; */
+    padding: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    width: 48px;
+    height: 48px;
+    transition: all ease 0.5s;
+    /* font-size: 100%; */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: scale(1);
+}
+
+.button:hover {
+    background-color: #007700;
+    /* font-size: 120%; */
+    transform: scale(1.2);
+}
+
+.alt {
+    position: absolute;
+    z-index: 3;
+    right: 0;
+    padding: 16px;
+    top: 40%;
+    font-size: 200%;
+    font-weight: 900;
+}

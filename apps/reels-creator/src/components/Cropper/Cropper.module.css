@@ -1,0 +1,44 @@
+.container {
+    margin-block-start: 60px;
+    position: relative;
+    padding: 10px;
+    width: 100%;
+
+    display: flex;
+    flex-direction: row;
+}
+
+.cropper {
+    position: relative;
+    min-width: 100%;
+    height: 55vh;
+}
+
+.controls {
+    flex-grow: 1;
+    padding: 20px;
+}
+
+.fileItem {
+    padding: 10px;
+    margin: 10px;
+    /* stylelint-disable-next-line color-named */
+    border: 1px solid lightblue;
+    cursor: pointer;
+}
+
+.formatItem {
+    padding: 10px;
+    margin: 10px;
+    /* stylelint-disable-next-line color-named */
+    border: 1px solid lightblue;
+    cursor: pointer;
+}
+
+.formatContainer {
+    display: flex;
+}
+
+.half {
+    width: 50%;
+}

@@ -1,0 +1,15 @@
+.grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(100px, 1fr)
+    ); /* Адаптируйте размеры под ваши нужды */
+    gap: 10px; /* Расстояние между элементами */
+}
+
+.item {
+    padding: 20px;
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    cursor: grab; /* Изменяет курсор, указывая на возможность перетаскивания */
+}

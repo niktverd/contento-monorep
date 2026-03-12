@@ -1,0 +1,17 @@
+/* stylelint-disable csstools/use-logical */
+
+.my-masonry-grid {
+    display: flex;
+    width: auto;
+}
+
+.my-masonry-grid_column {
+    padding-left: 10px; /* Расстояние между содержимым колонок */
+    background-clip: padding-box;
+}
+
+.masonry-item {
+    margin-bottom: 10px; /* Расстояние между элементами мозаики */
+    border-radius: 12px;
+    overflow: hidden;
+}
