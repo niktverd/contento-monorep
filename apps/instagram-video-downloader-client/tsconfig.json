@@ -12,7 +12,7 @@
     "strict": false, // Включаем строгий режим TypeScript (рекомендовано)
     "forceConsistentCasingInFileNames": true, // Требуем согласованности регистра в именах файлов
     "module": "esnext", // Используем ES модули
-    "moduleResolution": "node", // Разрешаем модули как в Node.js
+    "moduleResolution": "node", // Разрешаем модули для bundler (Vite)
     "resolveJsonModule": true, // Разрешаем импортировать JSON файлы
     "isolatedModules": true, // Изолируем модули (улучшает производительность)
     "noEmit": true, // Не генерируем JavaScript файлы (этим занимается Webpack)
