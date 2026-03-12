@@ -1,0 +1,6 @@
+storybook-static
+build
+!/.storybook
+.next
+.idea
+dist
