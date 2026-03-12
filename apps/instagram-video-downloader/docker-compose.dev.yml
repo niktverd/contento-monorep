@@ -1,0 +1,172 @@
+services:
+  base-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: instagram-video-downloader:dev
+
+  app:
+    image: instagram-video-downloader:dev
+    container_name: app_dev
+    command: npm run dev
+    ports:
+      - '3030:8080' # Expose API (container listens on 8080)
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./knexfile.js:/app/knexfile.js:ro
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+
+  downloading-worker:
+    image: instagram-video-downloader:dev
+    command: npm run start:downloading-worker
+    container_name: downloading_worker_dev
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    deploy:
+      resources:
+        limits:
+          # cpus: '2'
+          memory: 8G
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+
+  processing-worker:
+    image: instagram-video-downloader:dev
+    command: npm run start:processing-worker
+    container_name: processing_worker_dev
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    deploy:
+      resources:
+        limits:
+          # cpus: '2'
+          memory: 8G
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+
+  publishing-worker:
+    image: instagram-video-downloader:dev
+    command: npm run start:publishing-worker
+    container_name: publishing_worker_dev
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 4G
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+
+  # Database migrations
+  migrations:
+    image: instagram-video-downloader:dev
+    container_name: migrations_dev
+    command: sh -c "sleep 10 && npx knex migrate:latest"
+    env_file:
+      - .env.development
+    volumes:
+      - ./src:/app/src:ro
+      - ./package.json:/app/package.json:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      - ./knexfile.js:/app/knexfile.js:ro
+      - ./migrations:/app/migrations:ro
+    networks:
+      - app-dev-net
+      - temporal-network
+    depends_on:
+      - base-app
+      - postgresql
+    profiles:
+      - temporal
+
+  # Temporal services - enabled with --profile temporal
+  postgresql:
+    container_name: temporal-postgresql-dev
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: temporal
+      POSTGRES_USER: temporal
+      POSTGRES_DB: temporal
+    ports:
+      - '5433:5432' # Avoid conflict with main postgres on 5432
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    networks:
+      - temporal-network
+    profiles:
+      - temporal
+
+  temporal:
+    container_name: temporal-dev
+    image: temporalio/auto-setup:1.28.1
+    depends_on:
+      - postgresql
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgresql-dev
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+    ports:
+      - '7233:7233'
+    networks:
+      - temporal-network
+    profiles:
+      - temporal
+
+  temporal-ui:
+    container_name: temporal-ui-dev
+    image: temporalio/ui:2.39.0
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3030
+    ports:
+      - '8080:8080'
+    networks:
+      - temporal-network
+    profiles:
+      - temporal
+
+networks:
+  app-dev-net:
+    driver: bridge
+  temporal-network:
+    driver: bridge
+    name: temporal-network
+
+volumes:
+  temporal-postgres-data:

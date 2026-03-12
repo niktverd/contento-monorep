@@ -1,0 +1,562 @@
+name: Deploy Temporal Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      force_rebuild:
+        description: 'Force rebuild all images'
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.prod
+          target: production
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETZNER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HETZNER_SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment directory
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            mkdir -p /opt/instagram-video-downloader
+            cd /opt/instagram-video-downloader
+          '
+
+      - name: Copy deployment files
+        run: |
+          # Copy docker-compose and configuration files
+          scp docker-compose.prod.yml ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
+          scp -r docker/ ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
+          scp .env.production ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
+          scp Makefile ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/opt/instagram-video-downloader/
+
+      - name: Login to container registry on server
+        run: |
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+          '
+
+      - name: Deploy application
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          APP_POSTGRES_PASSWORD: ${{ secrets.APP_POSTGRES_PASSWORD }}
+          TEMPORAL_UI_PASSWORD: ${{ secrets.TEMPORAL_UI_PASSWORD }}
+          APP_ID: ${{ secrets.APP_ID }}
+          API_SECRET: ${{ secrets.API_SECRET }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          ALLOWED_SENDER_ID: ${{ secrets.ALLOWED_SENDER_ID }}
+          SUPER_ADMIN_SECRET: ${{ secrets.SUPER_ADMIN_SECRET }}
+          DOCKER_IMAGE: ${{ format('{0}/{1}@{2}', env.REGISTRY, env.IMAGE_NAME, needs.build-and-push.outputs.image-digest) }}
+          DATABASE_URL: postgresql://temporal:${{ secrets.POSTGRES_PASSWORD }}@postgresql:5432/temporal
+          APP_DATABASE_URL: postgresql://app_user:${{ secrets.APP_POSTGRES_PASSWORD }}@postgresql:5432/app_db
+          FIREBASE_ADMIN_SA_CONFIG: ${{ secrets.FIREBASE_ADMIN_SA_CONFIG }}
+        run: |
+          # Create secure deployment script with environment variables
+          cat > deploy_script.sh << 'DEPLOY_EOF'
+          #!/bin/bash
+          set -ex
+
+          cd /opt/instagram-video-downloader
+
+          # Export all required environment variables
+          export POSTGRES_PASSWORD="${POSTGRES_PASSWORD}"
+          export APP_POSTGRES_PASSWORD="${APP_POSTGRES_PASSWORD}"
+          export TEMPORAL_UI_PASSWORD="${TEMPORAL_UI_PASSWORD}" 
+          export APP_ID="${APP_ID}"
+          export FIREBASE_ADMIN_SA_CONFIG="${FIREBASE_ADMIN_SA_CONFIG}"
+          export API_SECRET="${API_SECRET}"
+          export GCP_PROJECT_ID="${GCP_PROJECT_ID}"
+          export ALLOWED_SENDER_ID="${ALLOWED_SENDER_ID}"
+          export SUPER_ADMIN_SECRET="${SUPER_ADMIN_SECRET}"
+          export HETZNER_SERVER_DOMAIN="${HETZNER_SERVER_DOMAIN}"
+          export HETZNER_SERVER_HOST="${HETZNER_SERVER_HOST}"
+
+          # Handle credentials - check if they are base64 encoded or direct JSON
+          if [[ "${GOOGLE_APPLICATION_CREDENTIALS}" =~ ^[A-Za-z0-9+/]*={0,2}$ ]] && [ ${#GOOGLE_APPLICATION_CREDENTIALS} -gt 100 ]; then
+            # Looks like base64, decode it
+            export GOOGLE_APPLICATION_CREDENTIALS=$(echo "${GOOGLE_APPLICATION_CREDENTIALS}" | base64 -d)
+          else
+            # Already JSON, use directly
+            export GOOGLE_APPLICATION_CREDENTIALS="${GOOGLE_APPLICATION_CREDENTIALS}"
+          fi
+
+          if [[ "${FIREBASE_CONFIG}" =~ ^[A-Za-z0-9+/]*={0,2}$ ]] && [ ${#FIREBASE_CONFIG} -gt 100 ]; then
+            # Looks like base64, decode it
+            export FIREBASE_CONFIG=$(echo "${FIREBASE_CONFIG}" | base64 -d)
+          else
+            # Already JSON, use directly
+            export FIREBASE_CONFIG="${FIREBASE_CONFIG}"
+          fi
+
+          export DOCKER_IMAGE="${DOCKER_IMAGE}"
+
+          # Validate credentials exist
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ] || [ -z "$FIREBASE_CONFIG" ]; then
+            echo "❌ Credentials are empty"
+            exit 1
+          fi
+
+          # Simple JSON validation (check if starts with {)
+          if [[ ! "$GOOGLE_APPLICATION_CREDENTIALS" =~ ^\{ ]]; then
+            echo "❌ GOOGLE_APPLICATION_CREDENTIALS doesn't look like JSON: ${GOOGLE_APPLICATION_CREDENTIALS:0:50}..."
+            exit 1
+          fi
+
+          if [[ ! "$FIREBASE_CONFIG" =~ ^\{ ]]; then
+            echo "❌ FIREBASE_CONFIG doesn't look like JSON: ${FIREBASE_CONFIG:0:50}..."
+            exit 1
+          fi
+
+          # Construct DATABASE_URLs with passwords
+          export DATABASE_URL="postgresql://temporal:${POSTGRES_PASSWORD}@postgresql:5432/temporal"
+          export APP_DATABASE_URL="postgresql://app_user:${APP_POSTGRES_PASSWORD}@postgresql:5432/app_db"
+
+          # Note: All databases are now created by CI/CD logic below
+          # This ensures they exist regardless of volume state
+
+          # Docker Compose operations with environment variables
+          echo "🚀 Pulling latest images..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production pull
+
+          echo "🛑 Stopping existing containers gracefully..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production down --timeout 60
+
+          echo "🚀 Starting PostgreSQL..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d postgresql
+
+          echo "⏳ Waiting for PostgreSQL to be ready..."
+          timeout 120 bash -c 'until docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql pg_isready -U temporal; do sleep 2; done'
+
+          echo "🔧 Ensuring all databases and users exist..."
+
+          # Check if temporal database exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'temporal'" | grep -q 1 || {
+            echo "Creating temporal database..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal temporal
+          }
+
+          # Check if temporal_visibility database exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'temporal_visibility'" | grep -q 1 || {
+            echo "Creating temporal_visibility database..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal temporal_visibility
+          }
+
+          # Check if app_user exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_user WHERE usename = 'app_user'" | grep -q 1 || {
+            echo "Creating app_user..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "CREATE USER app_user WITH PASSWORD '${APP_POSTGRES_PASSWORD}';"
+          }
+
+          # Check if app_db exists, if not - create it
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -tc "SELECT 1 FROM pg_database WHERE datname = 'app_db'" | grep -q 1 || {
+            echo "Creating app_db..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql createdb -U temporal -O app_user app_db
+            docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT ALL PRIVILEGES ON DATABASE app_db TO app_user;"
+          }
+
+          echo "🔒 Enforcing database isolation (removing app_user access to Temporal databases)..."
+          # Remove inherited CONNECT privilege from PUBLIC role for Temporal databases
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal FROM PUBLIC;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal_visibility FROM PUBLIC;"
+
+          # Explicitly deny app_user access to Temporal databases
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE CONNECT ON DATABASE temporal_visibility FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE ALL ON DATABASE temporal FROM app_user;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "REVOKE ALL ON DATABASE temporal_visibility FROM app_user;"
+
+          # Restore access for temporal user (superuser already has access, but explicit for clarity)
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT CONNECT ON DATABASE temporal TO temporal;"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T postgresql psql -U temporal -c "GRANT CONNECT ON DATABASE temporal_visibility TO temporal;"
+
+          echo "🚀 Starting Temporal Server..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d temporal temporal-ui
+
+          echo "⏳ Waiting for Temporal to be ready..."
+          timeout 120 bash -c \
+            'until [ "$(docker-compose -f docker-compose.prod.yml --env-file .env.production ps -q temporal | xargs docker inspect -f '{{.State.Health.Status}}')" == "healthy" ]; do sleep 2; done'
+
+          echo "🚀 Starting Application and Workers..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d app downloading-worker processing-worker publishing-init-worker publishing-exec-worker
+
+          echo "🔧 Running database migrations..."
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app npm run migrate
+
+          echo "🚀 Initializing SSL certificates..."
+          # Ensure /etc/letsencrypt/live and /etc/letsencrypt/archive exist in the volume before Certbot runs
+          docker run --rm -v letsencrypt-certs:/etc/letsencrypt alpine:latest sh -c "mkdir -p /etc/letsencrypt/live /etc/letsencrypt/archive"
+
+          /opt/instagram-video-downloader/scripts/init-ssl-certificates.sh --non-interactive ${HETZNER_SERVER_DOMAIN} admin@${HETZNER_SERVER_DOMAIN}
+
+          echo "--- Content of nginx.conf inside NGINX container ---"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx cat /etc/nginx/nginx.conf
+          echo "--- Contents of /etc/letsencrypt/live/ inside NGINX container ---"
+          docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T nginx ls -laR /etc/letsencrypt/live/
+
+          echo "✅ Deployment completed!"
+          DEPLOY_EOF
+
+          # Copy script to server and execute with environment variables
+          scp deploy_script.sh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/tmp/
+
+          # Execute the script on the server with environment variables securely passed
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} 'bash -s' <<EOF
+          export POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
+          export APP_POSTGRES_PASSWORD='${APP_POSTGRES_PASSWORD}'
+          export TEMPORAL_UI_PASSWORD='${TEMPORAL_UI_PASSWORD}'
+          export APP_ID='${APP_ID}'
+          export FIREBASE_ADMIN_SA_CONFIG='${FIREBASE_ADMIN_SA_CONFIG}'
+          export API_SECRET='${API_SECRET}'
+          export GOOGLE_APPLICATION_CREDENTIALS='${GOOGLE_APPLICATION_CREDENTIALS}'
+          export FIREBASE_CONFIG='${FIREBASE_CONFIG}'
+          export GCP_PROJECT_ID='${GCP_PROJECT_ID}'
+          export ALLOWED_SENDER_ID='${ALLOWED_SENDER_ID}'
+          export SUPER_ADMIN_SECRET='${SUPER_ADMIN_SECRET}'
+          export DOCKER_IMAGE='${DOCKER_IMAGE}'
+          export DATABASE_URL='${DATABASE_URL}'
+          export APP_DATABASE_URL='${APP_DATABASE_URL}'
+          export HETZNER_SERVER_HOST='${{ secrets.HETZNER_SERVER_HOST }}'
+          export HETZNER_SERVER_DOMAIN='${{ secrets.HETZNER_SERVER_DOMAIN }}'
+          bash /tmp/deploy_script.sh
+          EOF
+
+      - name: Run health checks
+        run: |
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            cd /opt/instagram-video-downloader
+            
+            echo "⏳ Waiting for services to be healthy..."
+            services_to_check="app downloading-worker processing-worker publishing-init-worker publishing-exec-worker"
+            for service in $services_to_check; do
+              echo "... waiting for $service"
+              timeout 120 bash -c \
+                "until [ \"$(docker-compose -f docker-compose.prod.yml --env-file .env.production ps -q $service | xargs docker inspect -f '{{.State.Health.Status}}')\" == \"healthy\" ]; do sleep 2; done"
+            done
+            echo "✅ All services are healthy!"
+            
+            # Run health check script
+            if [ -f scripts/health-check.sh ]; then
+              chmod +x scripts/health-check.sh
+              ./scripts/health-check.sh
+            else
+              echo "⚠️ Health check script not found, performing basic checks..."
+              
+              # Basic container status check
+              docker-compose --file docker-compose.prod.yml --env-file .env.production ps
+              
+              # Check if all containers are healthy
+              if docker-compose --file docker-compose.prod.yml --env-file .env.production ps | grep -q "unhealthy\|Exit"; then
+                echo "❌ Some containers are not healthy"
+                docker-compose --file docker-compose.prod.yml --env-file .env.production logs --tail=50
+                exit 1
+              else
+                echo "✅ All containers appear to be healthy"
+              fi
+            fi
+          '
+
+      - name: Run communication verification
+        run: |
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            cd /opt/instagram-video-downloader
+            
+            # Run communication verification script
+            if [ -f scripts/verify-communication.ts ]; then
+              echo "🔍 Running communication verification..."
+              docker-compose -f docker-compose.prod.yml --env-file .env.production exec -T app node dist/src/scripts/verify-communication.js || {
+                echo "⚠️ Communication verification failed, but deployment continues"
+              }
+            fi
+          '
+
+      - name: Collect deployment artifacts
+        if: always()
+        run: |
+          # Create local artifacts directory
+          mkdir -p deployment-artifacts
+
+          # Collect deployment logs and health check results from server
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            cd /opt/instagram-video-downloader
+            
+            # Create artifacts directory on server
+            mkdir -p /tmp/deployment-artifacts
+            
+            # Collect docker-compose logs
+            echo "📋 Collecting docker-compose logs..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production logs --timestamps > /tmp/deployment-artifacts/docker-compose.log 2>&1 || echo "Failed to collect docker-compose logs"
+            
+            # Collect container status
+            echo "📋 Collecting container status..."
+            docker-compose -f docker-compose.prod.yml --env-file .env.production ps > /tmp/deployment-artifacts/container-status.txt 2>&1 || echo "Failed to collect container status"
+            
+            # Collect health check results if script exists
+            if [ -f scripts/health-check.sh ]; then
+              echo "📋 Running health check for artifacts..."
+              ./scripts/health-check.sh > /tmp/deployment-artifacts/health-check.log 2>&1 || echo "Health check failed or not found"
+            fi
+            
+            # Collect system info
+            echo "📋 Collecting system information..."
+            {
+              echo "=== System Info ==="
+              date
+              echo "=== Docker Version ==="
+              docker --version
+              echo "=== Docker Compose Version ==="
+              docker-compose --version
+              echo "=== Available Images ==="
+              docker images | grep instagram-video-downloader
+              echo "=== Disk Usage ==="
+              df -h
+              echo "=== Memory Usage ==="
+              free -h
+            } > /tmp/deployment-artifacts/system-info.txt 2>&1
+          '
+
+          # Download artifacts from server
+          scp -r ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }}:/tmp/deployment-artifacts/* ./deployment-artifacts/ || echo "Failed to download some artifacts"
+
+      - name: Upload deployment artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs-${{ github.sha }}
+          path: deployment-artifacts/
+          retention-days: 30
+
+      - name: Cleanup old images
+        run: |
+          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+            # Remove unused Docker images to save space
+            docker image prune -f --filter "until=24h"
+            docker system prune -f --volumes
+            
+            # Clean up temporary artifacts directory
+            rm -rf /tmp/deployment-artifacts
+          '
+
+      - name: Display deployment summary
+        run: |
+          echo "🎉 Deployment Summary:"
+          echo "- Environment: ${{ github.event.inputs.environment || 'production' }}"
+          echo "- Image: ${{ needs.build-and-push.outputs.image-tag }}"
+          echo "- Commit: ${{ github.sha }}"
+          echo "- Server: ${{ secrets.HETZNER_SERVER_HOST }}"
+          echo "- Domain: ${{ secrets.HETZNER_SERVER_DOMAIN }}"
+          echo ""
+          echo "🔗 Access URLs:"
+          echo "- Application API: https://${{ secrets.HETZNER_SERVER_DOMAIN }}"
+          echo "- Temporal UI: https://${{ secrets.HETZNER_SERVER_DOMAIN }}/temporal"
+          echo ""
+          echo "📋 Next steps:"
+          echo "1. Verify application is responding correctly"
+          echo "2. Check logs if needed: ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} 'cd /opt/instagram-video-downloader && docker compose logs'"
+          echo "3. Monitor application performance and resource usage"
+          echo "4. Ensure DNS A-record points ${{ secrets.HETZNER_SERVER_DOMAIN }} -> ${{ secrets.HETZNER_SERVER_HOST }}"
+
+  #  staging-test:
+
+#    name: Run Staging E2E Tests
+#    runs-on: ubuntu-latest
+#    needs: build-and-push
+#    if: github.event.inputs.environment == 'staging' || github.ref == 'refs/heads/develop'
+#    environment: staging
+#    steps:
+#      - name: Checkout repository
+#        uses: actions/checkout@v4
+#
+#      - name: Setup SSH for staging
+#        run: |
+#          mkdir -p ~/.ssh
+#          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+#          chmod 600 ~/.ssh/id_rsa
+#          ssh-keyscan -H ${{ secrets.STAGING_SERVER_HOST }} >> ~/.ssh/known_hosts
+#
+#      - name: Deploy to staging environment
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            mkdir -p /opt/instagram-video-downloader-staging
+#            cd /opt/instagram-video-downloader-staging
+#          '
+#
+#          # Copy staging configuration
+#          scp docker-compose.staging.yml ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp -r docker/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp -r scripts/ ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/
+#          scp .env.production ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }}:/opt/instagram-video-downloader-staging/.env.staging
+#
+#      - name: Configure staging environment
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Create staging environment file
+#            cp .env.staging .env.staging.local
+#
+#            # Replace with staging-specific values
+#            sed -i "s/your_secure_postgres_password_here/${{ secrets.STAGING_POSTGRES_PASSWORD }}/g" .env.staging.local
+#            sed -i "s/temporal/temporal_staging/g" .env.staging.local
+#            sed -i "s/production/staging/g" .env.staging.local
+#            sed -i "s/info/debug/g" .env.staging.local
+#
+#            # Set staging image
+#            echo "DOCKER_IMAGE=${{ needs.build-and-push.outputs.image-tag }}" >> .env.staging.local
+#          '
+#
+#      - name: Deploy staging stack
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Login to registry
+#            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+#
+#            # Stop existing staging containers
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30 || true
+#
+#            # Pull latest images
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local pull
+#
+#            # Start staging stack
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local up -d
+#
+#            # Wait for services to be ready
+#            echo "⏳ Waiting for staging services to be ready..."
+#            sleep 60
+#          '
+#
+#      - name: Setup Node.js for testing
+#        uses: actions/setup-node@v4
+#        with:
+#          node-version: '20'
+#          cache: 'npm'
+#
+#      - name: Install dependencies
+#        run: npm ci
+#
+#      - name: Run E2E tests against staging
+#        env:
+#          STAGING_URL: http://${{ secrets.STAGING_SERVER_HOST }}:8080
+#          TEMPORAL_ADDRESS: ${{ secrets.STAGING_SERVER_HOST }}:7233
+#          TEMPORAL_NAMESPACE: default
+#        run: |
+#          # Make script executable
+#          chmod +x scripts/e2e-deploy-test.ts
+#
+#          # Run E2E tests
+#          npm run tsx scripts/e2e-deploy-test.ts
+#
+#      - name: Cleanup staging environment
+#        if: always()
+#        run: |
+#          ssh ${{ secrets.STAGING_SSH_USER }}@${{ secrets.STAGING_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader-staging
+#
+#            # Stop staging containers
+#            docker-compose -f docker-compose.staging.yml --env-file .env.staging.local down --timeout 30
+#
+#            # Clean up unused images
+#            docker image prune -f --filter "until=1h"
+#          '
+
+#  rollback:
+#    name: Rollback Deployment
+#    runs-on: ubuntu-latest
+#    needs: [build-and-push, deploy]
+#    if: failure()
+#    environment: ${{ github.event.inputs.environment || 'production' }}
+#    steps:
+#      - name: Rollback to previous version
+#        run: |
+#          ssh ${{ secrets.HETZNER_SSH_USER }}@${{ secrets.HETZNER_SERVER_HOST }} '
+#            cd /opt/instagram-video-downloader
+#
+#            echo "🔄 Rolling back to previous version..."
+#
+#            # Try to restore from backup if available
+#            if [ -f docker-compose.prod.yml.backup ]; then
+#              mv docker-compose.prod.yml.backup docker-compose.prod.yml
+#              docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+#              echo "✅ Rollback completed"
+#            else
+#              echo "⚠️ No backup found, manual intervention required"
+#              exit 1
+#            fi
+#          '

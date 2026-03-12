@@ -1,0 +1,57 @@
+module.exports = {
+    preset: 'ts-jest',
+    testEnvironment: 'node',
+    roots: ['<rootDir>/src/temporal'],
+    testMatch: ['**/__tests__/**/*.test.ts'],
+    collectCoverageFrom: [
+        'src/temporal/**/*.ts',
+        '!src/temporal/**/*.test.ts',
+        '!src/temporal/**/__tests__/**',
+        '!src/temporal/types/**',
+        '!src/temporal/__tests__/setup.ts',
+        '!src/temporal/__tests__/testing-best-practices.md',
+    ],
+    coverageDirectory: 'coverage/temporal',
+    coverageReporters: ['text', 'lcov', 'html', 'json'],
+    coverageThreshold: {
+        global: {
+            branches: 80,
+            functions: 80,
+            lines: 80,
+            statements: 80,
+        },
+        'src/temporal/activities/': {
+            branches: 90,
+            functions: 90,
+            lines: 90,
+            statements: 90,
+        },
+        'src/temporal/workflows/': {
+            branches: 85,
+            functions: 85,
+            lines: 85,
+            statements: 85,
+        },
+        'src/temporal/clients/': {
+            branches: 75,
+            functions: 75,
+            lines: 75,
+            statements: 75,
+        },
+    },
+    setupFilesAfterEnv: ['<rootDir>/src/temporal/__tests__/setup.ts'],
+    moduleNameMapper: {
+        '^#src/(.*)$': '<rootDir>/src/$1',
+        '^#config/(.*)$': '<rootDir>/src/config/$1',
+        '^#utils$': '<rootDir>/src/utils/index.ts',
+        '^#types$': '<rootDir>/src/types/index.ts',
+        '^#logic$': '<rootDir>/src/logic/index.ts',
+        '^#schemas/(.*)$': '<rootDir>/src/types/schemas/$1',
+        '^#models/(.*)$': '<rootDir>/src/db/models/$1',
+        '^\\$(.*)$': '<rootDir>/src/sections/$1',
+    },
+    testTimeout: 30000,
+    maxWorkers: 4,
+    verbose: true,
+    collectCoverage: false, // Enable only when running coverage command
+};

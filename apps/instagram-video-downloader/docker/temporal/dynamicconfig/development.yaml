@@ -1,0 +1,76 @@
+# Dynamic configuration for Temporal Server
+# Controls workflow history retention and other runtime settings
+
+# Workflow history retention - 7 days (production setting)
+history.maxAutoResetPoints:
+  - value: 20
+    constraints: {}
+
+# Workflow execution retention period (7 days = 168 hours)
+history.defaultWorkflowRetentionTTL:
+  - value: '168h'
+    constraints: {}
+
+# Archive workflows after retention period
+history.archivalEnabled:
+  - value: true
+    constraints: {}
+
+# Maximum workflow execution history size before archival
+history.maxWorkflowExecutionSize:
+  - value: 52428800 # 50MB
+    constraints: {}
+
+# Decision task timeout
+matching.longPollExpirationInterval:
+  - value: '60s'
+    constraints: {}
+
+# Sticky task list timeout
+matching.enableTasklistOwnership:
+  - value: true
+    constraints: {}
+
+# Maximum concurrent workflow executions per worker
+worker.maxConcurrentWorkflowExecutions:
+  - value: 1000
+    constraints: {}
+
+# Maximum concurrent activity executions per worker
+worker.maxConcurrentActivityExecutions:
+  - value: 1000
+    constraints: {}
+
+# Rate limiting
+frontend.rps:
+  - value: 1200
+    constraints: {}
+
+# Database connection pool settings
+persistence.maxQPS:
+  - value: 3000
+    constraints: {}
+
+# Enable metrics collection
+system.enableGlobalNamespace:
+  - value: false
+    constraints: {}
+
+# Namespace registration rate limit
+frontend.namespaceReplicationInducingAPIsRPS:
+  - value: 20
+    constraints: {}
+
+# History service settings
+history.timerProcessorMaxTimeShift:
+  - value: '1s'
+    constraints: {}
+
+# Matching service settings
+matching.numTasklistWritePartitions:
+  - value: 4
+    constraints: {}
+
+matching.numTasklistReadPartitions:
+  - value: 4
+    constraints: {}

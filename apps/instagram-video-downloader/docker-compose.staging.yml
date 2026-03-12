@@ -1,0 +1,345 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:16
+    container_name: postgres-staging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-temporal_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+    volumes:
+      # Persistent data storage (smaller for staging)
+      - postgres-staging-data:/var/lib/postgresql/data
+      # Database initialization scripts
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 4G
+        reservations:
+          # cpus: '0.5'
+          memory: 2G
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-temporal} -d ${POSTGRES_DB:-temporal_staging}',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - postgres
+          - database
+
+  temporal:
+    image: temporalio/auto-setup:1.20.0
+    container_name: temporal-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-temporal}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD}
+      - POSTGRES_SEEDS=postgresql
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - SKIP_SCHEMA_SETUP=false
+      - SKIP_DB_CREATE=false
+    volumes:
+      # Custom Temporal configuration
+      - ./docker/temporal/config.yml:/etc/temporal/config/config.yml:ro
+      - ./docker/temporal/dynamicconfig:/etc/temporal/dynamicconfig:ro
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 4G
+        reservations:
+          # cpus: '0.5'
+          memory: 2G
+    healthcheck:
+      test: ['CMD', 'tctl', '--address', 'temporal:7233', 'cluster', 'health']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - temporal-server
+
+  temporal-ui:
+    image: temporalio/ui:2.18.2
+    container_name: temporal-ui-staging
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3030
+      - TEMPORAL_AUTH_ENABLED=false
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.25'
+          memory: 256M
+        reservations:
+          # cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - temporal-web
+
+  app:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: instagram-app-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=staging
+      - PORT=${API_PORT:-8080}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - HEALTH_CHECK_PORT=${HEALTH_CHECK_PORT:-8080}
+      - METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - METRICS_PORT=${METRICS_PORT:-9090}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://localhost:8080}
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 4G
+        reservations:
+          # cpus: '0.5'
+          memory: 2G
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - app-server
+          - api
+
+  downloading-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: downloading-worker-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=staging
+      - WORKER_TYPE=downloading
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - DOWNLOADING_WORKER_CONCURRENCY=${DOWNLOADING_WORKER_CONCURRENCY:-5}
+      - DOWNLOADING_WORKER_MAX_WORKFLOWS=${DOWNLOADING_WORKER_MAX_WORKFLOWS:-10}
+      - DOWNLOADING_WORKER_TASK_QUEUE=${DOWNLOADING_WORKER_TASK_QUEUE:-video-downloading}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 8G
+        reservations:
+          # cpus: '0.5'
+          memory: 4G
+    command: ['node', 'dist/src/scripts/start-downloading-worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - downloading-worker
+
+  processing-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: processing-worker-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=staging
+      - WORKER_TYPE=processing
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PROCESSING_WORKER_CONCURRENCY=${PROCESSING_WORKER_CONCURRENCY:-2}
+      - PROCESSING_WORKER_MAX_WORKFLOWS=${PROCESSING_WORKER_MAX_WORKFLOWS:-5}
+      - PROCESSING_WORKER_TASK_QUEUE=${PROCESSING_WORKER_TASK_QUEUE:-video-processing}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+    # Reduced resources for staging
+    deploy:
+      resources:
+        limits:
+          # cpus: '1'
+          memory: 8G
+        reservations:
+          # cpus: '0.5'
+          memory: 4G
+    command: ['node', 'dist/src/scripts/start-processing-worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - processing-worker
+
+  publishing-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: publishing-worker-staging
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=staging
+      - WORKER_TYPE=publishing
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PUBLISHING_WORKER_CONCURRENCY=${PUBLISHING_WORKER_CONCURRENCY:-1}
+      - PUBLISHING_WORKER_MAX_WORKFLOWS=${PUBLISHING_WORKER_MAX_WORKFLOWS:-1}
+      - PUBLISHING_WORKER_TASK_QUEUE=${PUBLISHING_WORKER_TASK_QUEUE:-video-publishing}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+    # Reduced resources for staging (minimal for single long-lived workflow)
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.5'
+          memory: 2G
+        reservations:
+          # cpus: '0.25'
+          memory: 1G
+    command: ['node', 'dist/src/scripts/start-publishing-worker.js']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'const http = require("http"); const req = http.request({hostname: "localhost", port: 8080, path: "/health", timeout: 5000}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on("error", () => process.exit(1)); req.end();',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - publishing-worker
+
+  # Simple HTTP server for staging (no SSL, no auth)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx-staging
+    depends_on:
+      - app
+      - temporal-ui
+    volumes:
+      # Simple NGINX configuration for staging
+      - ./docker/nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      # Only HTTP for staging
+      - '8080:80'
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.25'
+          memory: 256M
+        reservations:
+          # cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      temporal-staging-network:
+        aliases:
+          - nginx-proxy
+          - gateway
+
+networks:
+  temporal-staging-network:
+    driver: bridge
+    name: temporal-staging-network
+
+volumes:
+  postgres-staging-data:
+    driver: local

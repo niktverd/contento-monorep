@@ -1,0 +1,592 @@
+version: '3.8'
+
+services:
+  postgresql:
+    image: postgres:16
+    container_name: postgres-prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-temporal}
+      POSTGRES_USER: ${POSTGRES_USER:-temporal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+    volumes:
+      # Persistent data storage
+      - postgres-data:/var/lib/postgresql/data
+      # Backup script
+      - ./docker/postgres/backup.sh:/usr/local/bin/backup.sh:ro
+      # Backup storage
+      - postgres-backups:/var/backups/postgres
+    # Database only accessible internally - no external ports
+    deploy:
+      resources:
+        limits:
+          # cpus: '2'
+          memory: 16G
+        reservations:
+          # cpus: '1'
+          memory: 8G
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-temporal} -d ${POSTGRES_DB:-temporal}']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - postgres
+          - database
+
+  temporal:
+    image: temporalio/auto-setup:1.28.1
+    container_name: temporal-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-temporal}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD}
+      - POSTGRES_SEEDS=postgresql
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - SKIP_SCHEMA_SETUP=false
+      - SKIP_DB_CREATE=false
+    volumes:
+      # Custom Temporal configuration
+      - ./docker/temporal/config.yml:/etc/temporal/config/config.yml:ro
+      - ./docker/temporal/dynamicconfig:/etc/temporal/dynamicconfig:ro
+      # Archival storage
+      - temporal-archival:/tmp/temporal_archival
+      - temporal-vis-archival:/tmp/temporal_vis_archival
+    # Temporal server only accessible internally - no external ports
+    deploy:
+      resources:
+        limits:
+          # cpus: '2'
+          memory: 8G
+        reservations:
+          # cpus: '1'
+          memory: 4G
+    healthcheck:
+      test: ['CMD', 'tctl', '--address', 'temporal:7233', 'cluster', 'health']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - temporal-server
+
+  temporal-ui:
+    image: temporalio/ui:2.39.0
+    container_name: temporal-ui-prod
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3030
+      - TEMPORAL_AUTH_ENABLED=false
+      - TEMPORAL_UI_PUBLIC_PATH=/temporal
+    # UI accessible only via internal network (NGINX will proxy it)
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.5'
+          memory: 512M
+        reservations:
+          # cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - temporal-web
+
+  app:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: instagram-app-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=server-production
+      - KNEX_ENV=server-production
+      - PORT=${API_PORT:-8080}
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - HEALTH_CHECK_PORT=${HEALTH_CHECK_PORT:-8080}
+      - METRICS_ENABLED=${METRICS_ENABLED:-true}
+      - METRICS_PORT=${METRICS_PORT:-9090}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://localhost:8080}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+      - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+      - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - APP_ID=${APP_ID}
+      - API_SECRET=${API_SECRET}
+      - ALLOWED_SENDER_ID=${ALLOWED_SENDER_ID}
+    volumes:
+      # Application logs
+      - app-logs:/app/logs
+      # Downloaded content storage
+      - app-downloads:/app/downloads
+
+    # App only accessible via NGINX proxy - no external ports
+    deploy:
+      resources:
+        limits:
+          # cpus: '2'
+          memory: 8G
+        reservations:
+          # cpus: '1'
+          memory: 4G
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8080/api/ping']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - app-server
+          - api
+
+  downloading-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: downloading-worker-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=server-production
+      - WORKER_TYPE=downloading
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - DOWNLOADING_WORKER_CONCURRENCY=${DOWNLOADING_WORKER_CONCURRENCY:-15}
+      - DOWNLOADING_WORKER_MAX_WORKFLOWS=${DOWNLOADING_WORKER_MAX_WORKFLOWS:-25}
+      - DOWNLOADING_WORKER_TASK_QUEUE=${DOWNLOADING_WORKER_TASK_QUEUE:-video-downloading}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - DOWNLOAD_VIDEO_START_TO_CLOSE_TIMEOUT=${DOWNLOAD_VIDEO_START_TO_CLOSE_TIMEOUT:-PT7M}
+      - DOWNLOAD_VIDEO_MAXIMUM_ATTEMPTS=${DOWNLOAD_VIDEO_MAXIMUM_ATTEMPTS:-3}
+      - GET_ACCOUNTS_START_TO_CLOSE_TIMEOUT=${GET_ACCOUNTS_START_TO_CLOSE_TIMEOUT:-PT5M}
+      - INSTAGRAM_ACTIVITY_START_TO_CLOSE_TIMEOUT=${INSTAGRAM_ACTIVITY_START_TO_CLOSE_TIMEOUT:-PT10M}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+      - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+      - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - APP_ID=${APP_ID}
+      - API_SECRET=${API_SECRET}
+    volumes:
+      # Worker logs
+      - downloading-worker-logs:/app/logs
+      # Shared downloads storage
+      - app-downloads:/app/downloads
+      # Temporary processing space
+      - downloading-worker-temp:/tmp
+
+    command: ['node', 'dist/src/scripts/start-downloading-worker.js']
+    deploy:
+      resources:
+        limits:
+          # cpus: '4'
+          memory: 32G
+        reservations:
+          # cpus: '2'
+          memory: 16G
+    healthcheck:
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-downloading-worker.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - downloading-worker
+
+  processing-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: processing-worker-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=server-production
+      - WORKER_TYPE=processing
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PROCESSING_WORKER_CONCURRENCY=${PROCESSING_WORKER_CONCURRENCY:-5}
+      - PROCESSING_WORKER_MAX_WORKFLOWS=${PROCESSING_WORKER_MAX_WORKFLOWS:-10}
+      - PROCESSING_WORKER_TASK_QUEUE=${PROCESSING_WORKER_TASK_QUEUE:-video-processing}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - PROCESS_VIDEO_START_TO_CLOSE_TIMEOUT=${PROCESS_VIDEO_START_TO_CLOSE_TIMEOUT:-PT18M}
+      - PROCESS_VIDEO_MAXIMUM_ATTEMPTS=${PROCESS_VIDEO_MAXIMUM_ATTEMPTS:-2}
+      - PROCESS_WORKER_MEMORY_LIMIT=${PROCESS_WORKER_MEMORY_LIMIT:-2G}
+      - PROCESS_WORKER_CONCURRENCY_LIMIT=${PROCESS_WORKER_CONCURRENCY_LIMIT:-2}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+      - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+      - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - APP_ID=${APP_ID}
+      - API_SECRET=${API_SECRET}
+    volumes:
+      # Worker logs
+      - processing-worker-logs:/app/logs
+      # Shared downloads storage
+      - app-downloads:/app/downloads
+      # Large temporary processing space for video operations
+      - processing-worker-temp:/tmp
+      - processing-worker-cache:/app/cache
+
+    command: ['node', 'dist/src/scripts/start-processing-worker.js']
+    deploy:
+      resources:
+        limits:
+          # cpus: '4'
+          memory: 32G
+        reservations:
+          # cpus: '2'
+          memory: 16G
+    healthcheck:
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-processing-worker.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - processing-worker
+
+  # publishing-worker:
+  #   image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+  #   container_name: publishing-worker-prod
+  #   depends_on:
+  #     postgresql:
+  #       condition: service_healthy
+  #     temporal:
+  #       condition: service_healthy
+  #     migrations:
+  #       condition: service_started
+  #   environment:
+  #     - NODE_ENV=production
+  #     - APP_ENV=server-production
+  #     - WORKER_TYPE=publishing
+  #     - APP_DATABASE_URL=${APP_DATABASE_URL}
+  #     - DATABASE_URL=${DATABASE_URL}
+  #     - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+  #     - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+  #     - PUBLISHING_WORKER_CONCURRENCY=${PUBLISHING_WORKER_CONCURRENCY:-1}
+  #     - PUBLISHING_WORKER_MAX_WORKFLOWS=${PUBLISHING_WORKER_MAX_WORKFLOWS:-1}
+  #     - PUBLISHING_WORKER_TASK_QUEUE=${PUBLISHING_WORKER_TASK_QUEUE:-video-publishing}
+  #     - LOG_LEVEL=${LOG_LEVEL:-info}
+  #     - LOG_FORMAT=${LOG_FORMAT:-json}
+  #     - PUBLISH_VIDEO_START_TO_CLOSE_TIMEOUT=${PUBLISH_VIDEO_START_TO_CLOSE_TIMEOUT:-PT15M}
+  #     - PUBLISH_VIDEO_MAXIMUM_ATTEMPTS=${PUBLISH_VIDEO_MAXIMUM_ATTEMPTS:-3}
+  #     - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+  #     - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+  #     - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+  #     - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+  #     - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+  #     - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+  #     - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+  #     - APP_ID=${APP_ID}
+  #     - API_SECRET=${API_SECRET}
+  #   volumes:
+  #     # Worker logs
+  #     - publishing-worker-logs:/app/logs
+  #     # Shared downloads storage
+  #     - app-downloads:/app/downloads
+  #     # Temporary processing space
+  #     - publishing-worker-temp:/tmp
+  #     # Mount updated knexfile.js to fix database connection
+  #     - ./knexfile.js:/app/knexfile.js:ro
+  #   command: ['node', 'dist/src/scripts/start-publishing-init-worker.js']
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         # cpus: '1'
+  #         memory: 4G
+  #       reservations:
+  #         # cpus: '0.5'
+  #         memory: 2G
+  #   healthcheck:
+  #     test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-worker.js']
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+  #   restart: unless-stopped
+  #   networks:
+  #     temporal-prod-network:
+  #       aliases:
+  #         - publishing-worker
+
+  publishing-init-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: publishing-init-worker-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=server-production
+      - WORKER_TYPE=publishing-init
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PUBLISHING_WORKER_CONCURRENCY=${PUBLISHING_WORKER_CONCURRENCY:-1}
+      - PUBLISHING_WORKER_MAX_WORKFLOWS=${PUBLISHING_WORKER_MAX_WORKFLOWS:-1}
+      - PUBLISHING_WORKER_TASK_QUEUE=${PUBLISHING_WORKER_TASK_QUEUE:-init-video-publishing}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+      - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+      - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - APP_ID=${APP_ID}
+      - API_SECRET=${API_SECRET}
+    volumes:
+      - publishing-worker-logs:/app/logs
+      - app-downloads:/app/downloads
+      - publishing-worker-temp:/tmp
+
+    command: ['node', 'dist/src/scripts/start-publishing-init-worker.js']
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    healthcheck:
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-init-worker.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - publishing-init-worker
+
+  publishing-exec-worker:
+    image: ${DOCKER_IMAGE:-ghcr.io/niktverd/instagram-video-downloader:latest}
+    container_name: publishing-exec-worker-prod
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=server-production
+      - WORKER_TYPE=publishing-exec
+      - APP_DATABASE_URL=${APP_DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL}
+      - TEMPORAL_ADDRESS=${TEMPORAL_ADDRESS:-temporal:7233}
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - PUBLISHING_WORKER_CONCURRENCY=${PUBLISHING_EXEC_WORKER_CONCURRENCY:-10}
+      - PUBLISHING_WORKER_MAX_WORKFLOWS=${PUBLISHING_EXEC_WORKER_MAX_WORKFLOWS:-10}
+      - PUBLISHING_WORKER_TASK_QUEUE=${PUBLISHING_EXEC_WORKER_TASK_QUEUE:-process-video-publishing}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      - WORKER_SHUTDOWN_TIMEOUT=${WORKER_SHUTDOWN_TIMEOUT:-30000}
+      - MAIN_BACKEND_ENDPOINT=${MAIN_BACKEND_ENDPOINT:-http://app-server:8080}
+      - FIREBASE_CONFIG=${FIREBASE_CONFIG}
+      - FIREBASE_ADMIN_SA_CONFIG=${FIREBASE_ADMIN_SA_CONFIG}
+      - SUPER_ADMIN_SECRET=${SUPER_ADMIN_SECRET}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+      - APP_ID=${APP_ID}
+      - API_SECRET=${API_SECRET}
+    volumes:
+      - publishing-exec-worker-logs:/app/logs
+      - app-downloads:/app/downloads
+      - publishing-exec-worker-temp:/tmp
+
+    command: ['node', 'dist/src/scripts/start-publishing-exec-worker.js']
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ['CMD', 'pgrep', '-f', 'dist/src/scripts/start-publishing-exec-worker.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - publishing-exec-worker
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx-prod
+    depends_on:
+      - app
+      - temporal-ui
+    environment:
+      - NGINX_HOST=${NGINX_HOST:-localhost}
+      - NGINX_PORT=80
+    volumes:
+      # NGINX configuration
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Basic authentication file
+      - ./docker/nginx/.htpasswd:/etc/nginx/.htpasswd:ro
+      # SSL certificates (Let's Encrypt)
+      - letsencrypt-certs:/etc/letsencrypt:ro
+      # Certbot webroot for ACME challenge
+      - certbot-webroot:/var/www/certbot
+      # NGINX logs
+      - nginx-logs:/var/log/nginx
+    ports:
+      # Only expose HTTP and HTTPS ports externally
+      - '80:80'
+      - '443:443'
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.5'
+          memory: 512M
+        reservations:
+          # cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:80/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      temporal-prod-network:
+        aliases:
+          - nginx-proxy
+          - gateway
+
+  certbot:
+    image: certbot/certbot:v2.7.4
+    container_name: certbot-prod
+    volumes:
+      # SSL certificates storage
+      - letsencrypt-certs:/etc/letsencrypt
+      # Webroot for ACME challenge
+      - certbot-webroot:/var/www/certbot
+      # Certbot logs
+      - certbot-logs:/var/log/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@${NGINX_HOST:-localhost} --agree-tos --no-eff-email -d ${NGINX_HOST:-localhost}
+    depends_on:
+      - nginx
+    deploy:
+      resources:
+        limits:
+          # cpus: '0.1'
+          memory: 128M
+    restart: 'no'
+    networks:
+      temporal-prod-network:
+        aliases:
+          - certbot
+
+networks:
+  temporal-prod-network:
+    driver: bridge
+    name: temporal-prod-network
+
+volumes:
+  postgres-data:
+    driver: local
+  postgres-backups:
+    driver: local
+  temporal-archival:
+    driver: local
+  temporal-vis-archival:
+    driver: local
+  app-logs:
+    driver: local
+  app-downloads:
+    driver: local
+  downloading-worker-logs:
+    driver: local
+  downloading-worker-temp:
+    driver: local
+  processing-worker-logs:
+    driver: local
+  processing-worker-temp:
+    driver: local
+  processing-worker-cache:
+    driver: local
+  publishing-worker-logs:
+    driver: local
+  publishing-worker-temp:
+    driver: local
+  nginx-logs:
+    driver: local
+  letsencrypt-certs:
+    driver: local
+  certbot-webroot:
+    driver: local
+  certbot-logs:
+    driver: local
+  publishing-exec-worker-logs:
+    driver: local
+  publishing-exec-worker-temp:
+    driver: local

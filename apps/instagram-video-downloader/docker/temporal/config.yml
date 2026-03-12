@@ -1,0 +1,116 @@
+log:
+  stdout: true
+  level: info
+
+persistence:
+  default:
+    driver: 'sql'
+
+    sql:
+      driver: 'postgres'
+      host: 'postgresql'
+      port: 5432
+      database: 'temporal'
+      user: 'temporal'
+      password: '${POSTGRES_PASSWORD}'
+      maxConns: 20
+      maxConnLifetime: '1h'
+
+  visibility:
+    driver: 'sql'
+
+    sql:
+      driver: 'postgres'
+      host: 'postgresql'
+      port: 5432
+      database: 'temporal'
+      user: 'temporal'
+      password: '${POSTGRES_PASSWORD}'
+      maxConns: 10
+      maxConnLifetime: '1h'
+
+global:
+  membership:
+    maxJoinDuration: 30s
+    broadcastAddress: '127.0.0.1'
+  pprof:
+    port: 7936
+  metrics:
+    prometheus:
+      timerType: 'histogram'
+      listenAddress: '0.0.0.0:9090'
+
+services:
+  frontend:
+    rpc:
+      grpcPort: 7233
+      membershipPort: 6933
+      bindOnLocalHost: false
+    metrics:
+      statsd:
+        hostPort: '127.0.0.1:8125'
+        prefix: 'temporal'
+
+  matching:
+    rpc:
+      grpcPort: 7235
+      membershipPort: 6935
+      bindOnLocalHost: false
+
+  history:
+    rpc:
+      grpcPort: 7234
+      membershipPort: 6934
+      bindOnLocalHost: false
+
+  worker:
+    rpc:
+      grpcPort: 7239
+      membershipPort: 6939
+      bindOnLocalHost: false
+
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: 'active'
+  currentClusterName: 'active'
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcAddress: 'temporal:7233'
+
+dcRedirectionPolicy:
+  policy: 'noop'
+
+archival:
+  history:
+    state: 'enabled'
+    enableRead: true
+    provider:
+      filestore:
+        fileMode: '0666'
+        dirMode: '0766'
+        outputDirectory: '/tmp/temporal_archival/development'
+  visibility:
+    state: 'enabled'
+    enableRead: true
+    provider:
+      filestore:
+        fileMode: '0666'
+        dirMode: '0766'
+        outputDirectory: '/tmp/temporal_vis_archival/development'
+
+namespaceDefaults:
+  archival:
+    history:
+      state: 'enabled'
+      URI: 'file:///tmp/temporal_archival/development'
+    visibility:
+      state: 'enabled'
+      URI: 'file:///tmp/temporal_vis_archival/development'
+
+# 7-day workflow history retention (production setting)
+dynamicConfigClient:
+  filepath: '/etc/temporal/dynamicconfig/development.yaml'
+  pollInterval: '10s'

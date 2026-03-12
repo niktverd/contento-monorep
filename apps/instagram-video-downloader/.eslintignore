@@ -1,0 +1,19 @@
+# System
+.idea
+.vscode
+.history
+
+# Terraform
+.terraform
+
+# Build
+dist
+
+# Node modules
+node_modules/
+
+# Dependency cruiser
+.dependency-cruiser.js
+
+# Shared
+sharedTypes

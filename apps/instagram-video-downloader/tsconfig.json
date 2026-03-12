@@ -1,0 +1,25 @@
+{
+  "extends": "@gravity-ui/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist/server",
+    "sourceMap": true,
+    "target": "ES2019",
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "#config/*": ["src/config/*"],
+      "#logic": ["src/logic/index.ts"],
+      "#tests/*": ["src/tests/*"],
+      "#types": ["src/types/index.ts"],
+      "#utils": ["src/utils/index.ts"],
+      "#schemas/*": ["src/types/schemas/*"],
+      "#models/*": ["src/db/models/*"],
+      "#src/*": ["src/*"],
+      "$/*": ["src/sections/*"],
+      "root/*": ["./*"]
+    }
+  },
+  "include": ["src", "app.ts", "index.ts", "src/scripts"],
+  "files": [],
+  "exclude": ["node_modules"]
+}

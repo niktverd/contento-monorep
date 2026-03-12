@@ -1,0 +1,23 @@
+# System
+.idea
+.vscode
+.history
+
+# Terraform
+.terraform
+
+# Build
+dist
+
+# Node modules
+node_modules
+
+# Dependency cruiser
+.dependency-cruiser.js
+
+# knip
+report/knip.md
+report/knip.md.prev
+
+# Shared
+sharedTypes

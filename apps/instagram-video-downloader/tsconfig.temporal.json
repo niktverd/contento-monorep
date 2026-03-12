@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "#src/*": ["src/*"],
+      "#config/*": ["src/config/*"],
+      "#utils": ["src/utils/index.ts"],
+      "#types": ["src/types/index.ts"],
+      "#logic": ["src/logic/index.ts"],
+      "#schemas/*": ["src/schemas/*"],
+      "$/*": ["src/sections/*"]
+    },
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
+  },
+  "ts-node": {
+    "require": ["module-alias/register"]
+  },
+  "include": ["src/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,655 @@
+#!/bin/bash
+set -x
+
+# ===============================================
+# SSL Certificate Initialization Script
+# ===============================================
+# Initializes Let's Encrypt SSL certificates for production deployment
+# Usage: ./scripts/init-ssl-certificates.sh [domain] [email]
+
+set -euo pipefail
+
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+DOCKER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.prod.yml"
+
+# Docker Compose project name and volume names
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-$(basename "$PROJECT_ROOT")}"
+LETSENCRYPT_VOLUME="${COMPOSE_PROJECT_NAME}_letsencrypt-certs"
+CERTBOT_WEBROOT_VOLUME="${COMPOSE_PROJECT_NAME}_certbot-webroot"
+
+# Default values
+DEFAULT_DOMAIN="your-domain.com"
+DEFAULT_EMAIL="admin@example.com"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
+}
+
+# Help function
+show_help() {
+    echo "SSL Certificate Initialization"
+    echo "=============================="
+    echo ""
+    echo "Usage: $0 [OPTIONS] [DOMAIN] [EMAIL]"
+    echo ""
+    echo "Options:"
+    echo "  -y, --non-interactive    Run in non-interactive mode (required for CI/CD)"
+    echo "  -h, --help              Show this help message"
+    echo ""
+    echo "Arguments:"
+    echo "  DOMAIN  - Your domain name (e.g., example.com)"
+    echo "  EMAIL   - Your email for Let's Encrypt registration"
+    echo ""
+    echo "Examples:"
+    echo "  $0 example.com admin@example.com                    # Interactive mode"
+    echo "  $0 --non-interactive example.com admin@example.com  # Non-interactive mode"
+    echo "  $0  # Interactive mode - will prompt for inputs"
+    echo ""
+    echo "Environment Variables:"
+    echo "  CERTBOT_DOMAIN - Domain name (fallback if not provided as argument)"
+    echo "  CERTBOT_EMAIL  - Email address (fallback if not provided as argument)"
+    echo "  COMPOSE_PROJECT_NAME - Docker Compose project name (default: directory name)"
+    echo ""
+    echo "This script will:"
+    echo "  1. Create dummy certificates for initial NGINX startup"
+    echo "  2. Start NGINX with HTTP-only configuration"
+    echo "  3. Obtain real SSL certificates from Let's Encrypt"
+    echo "  4. Reload NGINX with SSL configuration"
+    echo ""
+    echo "Note: Use --non-interactive flag for automated deployments"
+    echo "      Volume names: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
+}
+
+# Check if docker-compose is available
+check_docker_compose() {
+    if ! command -v docker >/dev/null 2>&1; then
+        log_error "Docker is not installed or not in PATH"
+        exit 1
+    fi
+    
+    if ! command -v docker-compose >/dev/null 2>&1; then
+        log_error "Docker Compose is not available"
+        exit 1
+    fi
+}
+
+# Validate domain format
+validate_domain() {
+    local domain="$1"
+    
+    if [[ ! "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+        log_error "Invalid domain format: $domain"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Validate email format
+validate_email() {
+    local email="$1"
+    
+    if [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        log_error "Invalid email format: $email"
+        return 1
+    fi
+    
+    return 0
+}
+
+# Check certificate expiry using openssl
+check_certificate_expiry() {
+    local domain="$1"
+    local threshold_days="${2:-30}"
+    
+    log_debug "Checking certificate expiry for domain: $domain (threshold: $threshold_days days)"
+    
+    local cert_check_result=$(docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "
+            apk add --no-cache openssl >/dev/null 2>&1
+            
+            cert_file=\"/etc/letsencrypt/live/$domain/fullchain.pem\"
+            
+            if [ ! -f \"\$cert_file\" ]; then
+                echo 'CERT_NOT_FOUND'
+                exit 0
+            fi
+            
+            # Check if certificate will expire within threshold_days
+            threshold_seconds=\$((${threshold_days} * 86400))
+            
+            echo \"DEBUG: Checking if cert expires within \$threshold_seconds seconds (\${threshold_days} days)\" >&2
+            
+            if openssl x509 -checkend \"\$threshold_seconds\" -noout -in \"\$cert_file\" >/dev/null 2>&1; then
+                echo \"DEBUG: Certificate is valid for more than \${threshold_days} days\" >&2
+                # Get actual expiry info for logging
+                expiry_date=\$(openssl x509 -enddate -noout -in \"\$cert_file\" | cut -d= -f2)
+                echo \"DEBUG: Certificate expires on: \$expiry_date\" >&2
+                
+                # Calculate days until expiry using date -u (UTC)
+                if command -v date >/dev/null 2>&1; then
+                    current_epoch=\$(date -u +%s)
+                    # Try GNU date first, fallback to busybox compatible parsing
+                    expiry_epoch=\$(date -u -d \"\$expiry_date\" +%s 2>/dev/null || echo '0')
+                    if [ \"\$expiry_epoch\" != '0' ] && [ \"\$expiry_epoch\" -gt \"\$current_epoch\" ]; then
+                        days_left=\$(( (\$expiry_epoch - \$current_epoch) / 86400 ))
+                        echo \"DEBUG: Days until expiry: \$days_left\" >&2
+                        echo \"CERT_VALID:\$days_left\"
+                    else
+                        echo \"DEBUG: Could not parse expiry date with date command\" >&2
+                        echo 'CERT_VALID:UNKNOWN_DAYS'
+                    fi
+                else
+                    echo \"DEBUG: date command not available\" >&2
+                    echo 'CERT_VALID:UNKNOWN_DAYS'
+                fi
+            else
+                echo \"DEBUG: Certificate expires within \${threshold_days} days or is invalid\" >&2
+                expiry_date=\$(openssl x509 -enddate -noout -in \"\$cert_file\" | cut -d= -f2 2>/dev/null || echo 'UNKNOWN')
+                echo \"DEBUG: Certificate expires on: \$expiry_date\" >&2
+                echo 'CERT_EXPIRED'
+            fi
+        " 2>&1)
+    
+    log_debug "Certificate check output: $cert_check_result"
+    
+    # Parse the result
+    local status=$(echo "$cert_check_result" | grep -E '^(CERT_NOT_FOUND|CERT_VALID|CERT_EXPIRED)' | tail -1)
+    local debug_lines=$(echo "$cert_check_result" | grep '^DEBUG:')
+    
+    # Log debug information
+    while IFS= read -r debug_line; do
+        if [[ -n "$debug_line" ]]; then
+            log_debug "${debug_line#DEBUG: }"
+        fi
+    done <<< "$debug_lines"
+    
+    case "$status" in
+        "CERT_NOT_FOUND")
+            log_info "No existing certificate found for $domain"
+            return 1  # Need new cert
+            ;;
+        "CERT_VALID:"*)
+            local days_left="${status#CERT_VALID:}"
+            if [[ "$days_left" == "UNKNOWN_DAYS" ]]; then
+                log_success "Certificate is valid for more than $threshold_days days (exact days unknown)"
+            else
+                log_success "Certificate is valid and expires in $days_left days"
+            fi
+            return 0  # Cert is valid
+            ;;
+        "CERT_EXPIRED")
+            log_warning "Certificate expires within $threshold_days days or is invalid"
+            return 1  # Need new cert
+            ;;
+        *)
+            log_warning "Could not determine certificate status, assuming renewal needed"
+            log_debug "Unexpected status: $status"
+            return 1  # Need new cert
+            ;;
+    esac
+}
+
+# Get domain and email interactively
+get_domain_and_email() {
+    local domain="${1:-}"
+    local email="${2:-}"
+    
+    # Get domain from environment or prompt
+    if [[ -z "$domain" ]]; then
+        domain="${CERTBOT_DOMAIN:-}"
+    fi
+    
+    if [[ -z "$domain" ]]; then
+        echo ""
+        read -p "Enter your domain name (e.g., example.com): " domain
+    fi
+    
+    if [[ -z "$domain" || "$domain" == "$DEFAULT_DOMAIN" ]]; then
+        log_error "Domain name is required and cannot be the default placeholder"
+        exit 1
+    fi
+    
+    if ! validate_domain "$domain"; then
+        exit 1
+    fi
+    
+    # Get email from environment or prompt
+    if [[ -z "$email" ]]; then
+        email="${CERTBOT_EMAIL:-}"
+    fi
+    
+    if [[ -z "$email" ]]; then
+        echo ""
+        read -p "Enter your email for Let's Encrypt registration: " email
+    fi
+    
+    if [[ -z "$email" || "$email" == "$DEFAULT_EMAIL" ]]; then
+        log_error "Email is required and cannot be the default placeholder"
+        exit 1
+    fi
+    
+    if ! validate_email "$email"; then
+        exit 1
+    fi
+    
+    echo "$domain" "$email"
+}
+
+# Create dummy SSL certificates for initial NGINX startup
+create_dummy_certificates() {
+    local domain="$1"
+    
+    log_info "Creating dummy SSL certificates for initial setup..."
+    log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
+    
+    # Create certificate directory structure
+    docker run --rm -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" alpine:latest sh -c "mkdir -p /etc/letsencrypt/live/$domain && mkdir -p /etc/letsencrypt/archive/$domain"
+    
+    # Create webroot directory for ACME challenge
+    docker run --rm \
+        -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
+        alpine:latest \
+        sh -c "
+            mkdir -p /var/www/certbot/.well-known/acme-challenge
+            chmod -R 755 /var/www/certbot
+        "
+    
+    # Generate dummy certificates
+    docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "
+            apk add --no-cache openssl
+            openssl req -x509 -nodes -newkey rsa:2048 \
+                -days 1 \
+                -keyout /etc/letsencrypt/live/$domain/privkey.pem \
+                -out /etc/letsencrypt/live/$domain/fullchain.pem \
+                -subj '/CN=$domain'
+            cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/letsencrypt/live/$domain/chain.pem
+            chmod -R 755 /etc/letsencrypt/live/$domain
+            chmod -R 755 /etc/letsencrypt/archive/$domain
+            chmod 644 /etc/letsencrypt/live/$domain/fullchain.pem
+            chmod 600 /etc/letsencrypt/live/$domain/privkey.pem
+            echo 'Dummy certificates created for $domain'
+        "
+    
+    # Set proper ownership for nginx user (uid 101)
+    docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "chown -R 101:101 /etc/letsencrypt/live/$domain /etc/letsencrypt/archive/$domain"
+
+    log_success "Dummy SSL certificates created"
+}
+
+# Start NGINX to handle ACME challenge
+start_nginx_for_acme() {
+    log_info "Starting NGINX for ACME challenge..."
+
+    # Start only NGINX (no SSL yet)
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
+
+    log_info "Waiting for NGINX to be ready for ACME challenge..."
+    local NGINX_WAIT_TIMEOUT=60 # seconds
+    local NGINX_WAIT_INTERVAL=5 # seconds
+    local elapsed_time=0
+
+    while ! docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T nginx wget --quiet --tries=1 --spider http://localhost:80/health 2>/dev/null; do
+        if [[ $elapsed_time -ge $NGINX_WAIT_TIMEOUT ]]; then
+            log_error "NGINX did not become ready within ${NGINX_WAIT_TIMEOUT} seconds."
+            log_error "Check NGINX logs for details: docker-compose logs nginx"
+            exit 1
+        fi
+        log_info "NGINX not yet ready, waiting... (${elapsed_time}/${NGINX_WAIT_TIMEOUT}s)"
+        sleep "$NGINX_WAIT_INTERVAL"
+        elapsed_time=$((elapsed_time + NGINX_WAIT_INTERVAL))
+    done
+
+    log_success "NGINX is ready for ACME challenge."
+}
+
+# Obtain real SSL certificates from Let's Encrypt
+obtain_ssl_certificates() {
+    local domain="$1"
+    local email="$2"
+    
+    log_info "Checking existing SSL certificates..."
+    log_info "Domain: $domain"
+    log_info "Email: $email"
+    log_info "Using volumes: $LETSENCRYPT_VOLUME, $CERTBOT_WEBROOT_VOLUME"
+    
+    # Use the new certificate expiry check function
+    if check_certificate_expiry "$domain" 30; then
+        log_info "Skipping certificate request to avoid rate limits"
+        return 0
+    fi
+    
+    log_info "Obtaining SSL certificates from Let's Encrypt..."
+    
+    # Remove existing certificates if they exist
+    log_debug "Removing any existing expired certificates..."
+    docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "rm -rf /etc/letsencrypt/live/$domain \
+                       /etc/letsencrypt/archive/$domain \
+                       /etc/letsencrypt/renewal/$domain.conf || true"
+
+    # Run certbot to obtain certificates
+    log_debug "Running certbot for domain: $domain"
+    docker run --rm \
+            -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+            -v "$CERTBOT_WEBROOT_VOLUME:/var/www/certbot" \
+            certbot/certbot \
+            certonly \
+            --webroot \
+            --webroot-path=/var/www/certbot \
+            --email "$email" \
+            --agree-tos \
+            --no-eff-email \
+            --non-interactive \
+            --domains "$domain"
+    
+    if [[ $? -eq 0 ]]; then
+        log_success "SSL certificates obtained successfully!"
+        # Verify the new certificate
+        log_debug "Verifying newly obtained certificate..."
+        check_certificate_expiry "$domain" 0  # Check if cert is valid (threshold 0 = just check if it exists and is valid)
+    else
+        log_error "Failed to obtain SSL certificates"
+        return 1
+    fi
+}
+
+# Update NGINX configuration with real domain
+update_nginx_config() {
+    local domain="$1"
+    
+    log_info "Updating NGINX configuration with real domain..."
+    
+    # Check if nginx.conf needs domain update
+    if grep -q "your-domain.com" "$PROJECT_ROOT/docker/nginx/nginx.conf"; then
+        log_info "Updating nginx.conf with domain: $domain"
+        
+        # Create backup
+        cp "$PROJECT_ROOT/docker/nginx/nginx.conf" "$PROJECT_ROOT/docker/nginx/nginx.conf.backup"
+        
+        # Replace placeholder with actual domain
+        sed -i "s/your-domain.com/$domain/g" "$PROJECT_ROOT/docker/nginx/nginx.conf"
+        
+        log_success "NGINX configuration updated"
+    else
+        log_info "NGINX configuration appears to be already updated"
+    fi
+}
+
+# Reload NGINX with new certificates
+reload_nginx() {
+    log_info "Starting/reloading NGINX with SSL certificates..."
+    
+    # Use up -d to start or restart NGINX container
+    # This will create new container if it doesn't exist, or restart if it does
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d nginx
+    
+    # Wait for startup
+    sleep 5
+    
+    log_success "NGINX started/reloaded successfully"
+}
+
+# Start certificate renewal service
+start_certificate_renewal() {
+    log_info "Starting certificate renewal service..."
+    
+    # Start certbot service for automatic renewal
+    docker-compose -f "$DOCKER_COMPOSE_FILE" up -d certbot
+    
+    log_success "Certificate renewal service started"
+    log_info "Certificates will be checked for renewal every 12 hours"
+}
+
+# Test SSL certificates
+test_ssl_certificates() {
+    local domain="$1"
+    
+    log_info "Testing SSL certificate installation..."
+    
+    # Test HTTPS connection
+    if command -v curl >/dev/null 2>&1; then
+        if curl -s -I "https://$domain" >/dev/null 2>&1; then
+            log_success "HTTPS connection successful!"
+        else
+            log_warning "HTTPS connection test failed"
+            log_info "This might be normal if DNS is not yet propagated"
+        fi
+    else
+        log_info "curl not available for SSL testing"
+    fi
+    
+    # Check certificate expiration
+    docker run --rm \
+        -v "$LETSENCRYPT_VOLUME:/etc/letsencrypt" \
+        alpine:latest \
+        sh -c "
+            apk add --no-cache openssl
+            if [ -f /etc/letsencrypt/live/$domain/fullchain.pem ]; then
+                echo 'Certificate details:'
+                openssl x509 -in /etc/letsencrypt/live/$domain/fullchain.pem -text -noout | grep -A 2 'Validity'
+            else
+                echo 'Certificate file not found'
+            fi
+        "
+}
+
+# Cleanup function
+cleanup() {
+    log_info "Cleaning up temporary resources..."
+    # Add any cleanup logic here if needed
+}
+
+# Main function
+main() {
+    # Parse arguments and flags
+    local domain=""
+    local email=""
+    local non_interactive=false
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -y|--non-interactive)
+                non_interactive=true
+                shift
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                log_error "Unknown option $1"
+                show_help
+                exit 1
+                ;;
+            *)
+                if [[ -z "$domain" ]]; then
+                    domain="$1"
+                elif [[ -z "$email" ]]; then
+                    email="$1"
+                else
+                    log_error "Too many arguments"
+                    show_help
+                    exit 1
+                fi
+                shift
+                ;;
+        esac
+    done
+    
+    log_info "SSL Certificate Initialization"
+    log_info "=============================="
+    
+    # Check prerequisites
+    check_docker_compose
+    
+    # Validate parameters first
+    if [[ -z "$domain" ]]; then
+        domain="${CERTBOT_DOMAIN:-}"
+    fi
+    
+    if [[ -z "$email" ]]; then
+        email="${CERTBOT_EMAIL:-}"
+    fi
+    
+    # In non-interactive mode, both domain and email must be provided
+    if [[ "$non_interactive" == true ]]; then
+        if [[ -z "$domain" ]]; then
+            log_error "Domain is required in non-interactive mode"
+            log_error "Provide via argument or CERTBOT_DOMAIN environment variable"
+            exit 1
+        fi
+        
+        if [[ -z "$email" ]]; then
+            log_error "Email is required in non-interactive mode" 
+            log_error "Provide via argument or CERTBOT_EMAIL environment variable"
+            exit 1
+        fi
+        
+        if [[ "$domain" == "$DEFAULT_DOMAIN" ]]; then
+            log_error "Domain cannot be the default placeholder: $DEFAULT_DOMAIN"
+            exit 1
+        fi
+        
+        if [[ "$email" == "$DEFAULT_EMAIL" ]]; then
+            log_error "Email cannot be the default placeholder: $DEFAULT_EMAIL"
+            exit 1
+        fi
+        
+        if ! validate_domain "$domain"; then
+            exit 1
+        fi
+        
+        if ! validate_email "$email"; then
+            exit 1
+        fi
+    else
+        # Interactive mode - get domain and email with prompts
+        read -r domain email <<< "$(get_domain_and_email "$domain" "$email")"
+    fi
+    
+    log_info "Configuration:"
+    log_info "  Domain: $domain"
+    log_info "  Email: $email"
+    log_info "  Compose file: $DOCKER_COMPOSE_FILE"
+    log_info "  Mode: $(if [[ "$non_interactive" == true ]]; then echo "non-interactive"; else echo "interactive"; fi)"
+    
+    # Confirmation prompt (only in interactive mode)
+    if [[ "$non_interactive" != true ]]; then
+        echo ""
+        read -p "Continue with SSL certificate initialization? (y/N): " confirm
+        if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+            log_info "Initialization cancelled"
+            exit 0
+        fi
+    fi
+    
+    # Set trap for cleanup
+    trap cleanup EXIT
+    
+    # Check if we need a new certificate using the improved function
+    local need_new_cert=true
+    
+    log_info ""
+    log_info "Checking existing certificates..."
+    
+    if check_certificate_expiry "$domain" 30; then
+        need_new_cert=false
+        log_info "Skipping certificate request to avoid rate limits"
+    else
+        log_info "Certificate renewal needed"
+    fi
+    
+    # Execute initialization steps
+    log_info ""
+    log_info "Step 1: Updating NGINX configuration..."
+    update_nginx_config "$domain"
+
+    if [[ "$need_new_cert" == true ]]; then
+        log_info ""
+        log_info "Step 2: Creating dummy certificates..."
+        create_dummy_certificates "$domain"
+        
+        log_info ""
+        log_info "Step 3: Starting NGINX for ACME challenge..."
+        start_nginx_for_acme
+        
+        log_info ""
+        log_info "Step 4: Obtaining real SSL certificates..."
+        if ! obtain_ssl_certificates "$domain" "$email"; then
+            log_error "Certificate initialization failed"
+            exit 1
+        fi
+    else
+        log_info ""
+        log_info "Step 2-4: Skipping certificate request (using existing valid certificate)"
+    fi
+    
+    log_info ""
+    log_info "Step 5: Reloading NGINX with SSL certificates..."
+    reload_nginx
+    
+    log_info ""
+    log_info "Step 6: Starting certificate renewal service..."
+    start_certificate_renewal
+    
+    log_info ""
+    log_info "Step 7: Testing SSL certificates..."
+    test_ssl_certificates "$domain"
+        
+    echo ""
+    log_success "SSL certificate initialization completed successfully!"
+    log_info ""
+    log_info "Next steps:"
+    log_info "  1. Update your DNS to point $domain to this server"
+    log_info "  2. Test HTTPS access: https://$domain"
+    log_info "  3. Monitor certificate renewal logs: docker-compose logs certbot"
+    log_info ""
+    log_info "Certificate files location:"
+    log_info "  - Certificate: /etc/letsencrypt/live/$domain/fullchain.pem"
+    log_info "  - Private key: /etc/letsencrypt/live/$domain/privkey.pem"
+    log_info "  - Chain: /etc/letsencrypt/live/$domain/chain.pem"
+}
+
+# Run main function with all arguments
+main "$@" 

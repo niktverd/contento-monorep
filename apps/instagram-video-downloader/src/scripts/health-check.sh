@@ -1,0 +1,373 @@
+#!/bin/bash
+
+# ==================================================
+# Production Health Check Script
+# ==================================================
+# Tests inter-container communication for:
+# - PostgreSQL Database
+# - Temporal Server
+# - Workers (downloading, processing)
+# - Express.js App
+# - End-to-end workflow execution
+
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Configuration
+TIMEOUT=30
+RETRY_COUNT=3
+DOCKER_COMPOSE_FILE=${DOCKER_COMPOSE_FILE:-docker-compose.prod.yml}
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Health check functions
+check_container_running() {
+    local container_name=$1
+    if docker-compose --file "$DOCKER_COMPOSE_FILE" ps "$container_name" | grep -q "Up"; then
+        log_success "Container $container_name is running"
+        return 0
+    else
+        log_error "Container $container_name is not running"
+        log_info "--- Last 50 lines of logs for $container_name ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 "$container_name" || true
+        log_info "------------------------------------------------"
+        return 1
+    fi
+}
+
+check_container_health() {
+    local container_name=$1
+    local health_status
+    health_status=$(docker inspect "$container_name" --format='{{.State.Health.Status}}' 2>/dev/null || echo "no-health")
+    
+    if [ "$health_status" = "healthy" ]; then
+        log_success "Container $container_name is healthy"
+        return 0
+    elif [ "$health_status" = "no-health" ]; then
+        log_warning "Container $container_name has no health check configured"
+        return 0
+    else
+        log_error "Container $container_name health status: $health_status"
+        log_info "--- Last 50 lines of logs for $container_name ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 "$container_name" || true
+        log_info "------------------------------------------------"
+        return 1
+    fi
+}
+
+check_postgres_connectivity() {
+    log_info "Testing PostgreSQL connectivity..."
+    
+    # Test database connection from PostgreSQL container itself
+    if docker exec postgres-prod pg_isready -U temporal 2>/dev/null; then
+        log_success "PostgreSQL server is ready"
+    else
+        log_error "PostgreSQL server not ready"
+        return 1
+    fi
+    
+    # Test Temporal database connection (temporal DB with temporal user)
+    if docker exec instagram-app-prod node -e "
+        const { Pool } = require('pg');
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        pool.query('SELECT NOW(), current_database(), current_user')
+            .then(result => { 
+                console.log('Temporal DB connection successful - Database:', result.rows[0].current_database, 'User:', result.rows[0].current_user); 
+                process.exit(0); 
+            })
+            .catch(err => { 
+                console.error('Temporal DB connection failed:', err.message); 
+                process.exit(1); 
+            });
+    " 2>/dev/null; then
+        log_success "App → Temporal DB (temporal) connection: OK"
+    else
+        log_error "App → Temporal DB (temporal) connection: FAILED"
+        return 1
+    fi
+    
+    # Test Application database connection (app_db with app_user)
+    if docker exec instagram-app-prod node -e "
+        const { Pool } = require('pg');
+        const pool = new Pool({ connectionString: process.env.APP_DATABASE_URL });
+        pool.query('SELECT NOW(), current_database(), current_user')
+            .then(result => { 
+                console.log('App DB connection successful - Database:', result.rows[0].current_database, 'User:', result.rows[0].current_user); 
+                process.exit(0); 
+            })
+            .catch(err => { 
+                console.error('App DB connection failed:', err.message); 
+                process.exit(1); 
+            });
+    " 2>/dev/null; then
+        log_success "App → Application DB (app_db) connection: OK"
+    else
+        log_error "App → Application DB (app_db) connection: FAILED"
+        return 1
+    fi
+    
+    # Test database isolation - app_user should NOT be able to access temporal database
+    if docker exec instagram-app-prod node -e "
+        const { Pool } = require('pg');
+        const appDbUrl = process.env.APP_DATABASE_URL;
+        // Replace app_db with temporal in the connection string to test access
+        const temporalTestUrl = appDbUrl.replace('/app_db', '/temporal');
+        const pool = new Pool({ connectionString: temporalTestUrl });
+        pool.query('SELECT NOW()')
+            .then(() => { 
+                console.error('SECURITY VIOLATION: app_user can access temporal database!'); 
+                process.exit(1); 
+            })
+            .catch(err => { 
+                console.log('Database isolation confirmed: app_user cannot access temporal DB (expected)'); 
+                process.exit(0); 
+            });
+    " 2>/dev/null; then
+        log_success "Database isolation: app_user → temporal DB access properly denied"
+    else
+        log_error "Database isolation: SECURITY ISSUE - app_user can access temporal DB"
+        return 1
+    fi
+    
+    # Test if Temporal can access the database via network connection
+    if docker exec temporal-prod sh -c "nc -z postgresql 5432" 2>/dev/null; then
+        log_success "Temporal → PostgreSQL network connection: OK"
+    else
+        log_error "Temporal → PostgreSQL network connection: FAILED"
+        return 1
+    fi
+}
+
+check_temporal_server() {
+    log_info "Testing Temporal server connectivity..."
+    
+    # Test Temporal server health
+    if docker exec temporal-prod tctl --address temporal:7233 cluster health 2>/dev/null; then
+        log_success "Temporal server health: OK"
+    else
+        log_error "Temporal server health: FAILED"
+        return 1
+    fi
+    
+    # Test Temporal namespace
+    if docker exec temporal-prod tctl --address temporal:7233 namespace describe default 2>/dev/null; then
+        log_success "Temporal namespace 'default': OK"
+    else
+        log_error "Temporal namespace 'default': FAILED"
+        return 1
+    fi
+}
+
+check_temporal_ui() {
+    log_info "Testing Temporal UI connectivity..."
+    
+    if docker exec temporal-ui-prod wget --quiet --tries=1 --spider http://localhost:8080/health 2>/dev/null; then
+        log_success "Temporal UI health: OK"
+    else
+        log_error "Temporal UI health: FAILED"
+        return 1
+    fi
+}
+
+check_worker_connectivity() {
+    local worker_name=$1
+    local task_queue=$2
+    
+    log_info "Testing $worker_name connectivity to Temporal..."
+    
+    # Check if worker can connect to Temporal by listing task queues
+    if docker exec "$worker_name" node -e "
+        const { Connection } = require('@temporalio/client');
+        async function test() {
+            try {
+                const connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS });
+                console.log('Worker connected to Temporal successfully');
+                await connection.close();
+                process.exit(0);
+            } catch (error) {
+                console.error('Worker connection failed:', error.message);
+                process.exit(1);
+            }
+        }
+        test();
+    " 2>/dev/null; then
+        log_success "$worker_name → Temporal connection: OK"
+    else
+        log_error "$worker_name → Temporal connection: FAILED"
+        return 1
+    fi
+}
+
+check_app_connectivity() {
+    log_info "Testing App connectivity..."
+    
+    # Give the app some time to start up
+    sleep 10
+
+    # Test app health endpoint
+    if docker exec instagram-app-prod wget --quiet --tries=1 --spider http://localhost:8080/api/ping 2>/dev/null; then
+        log_success "App health endpoint (/api/ping): OK"
+    else
+        log_error "App health endpoint (/api/ping): FAILED"
+        log_info "--- Last 50 lines of logs for instagram-app-prod ---"
+        docker-compose --file "$DOCKER_COMPOSE_FILE" logs --tail=50 instagram-app-prod || true
+        log_info "------------------------------------------------"
+        return 1
+    fi
+    
+    # Test app → Temporal connection
+    if docker exec instagram-app-prod node -e "
+        const { Connection } = require('@temporalio/client');
+        async function test() {
+            try {
+                const connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS });
+                console.log('App connected to Temporal successfully');
+                await connection.close();
+                process.exit(0);
+            } catch (error) {
+                console.error('App → Temporal connection failed:', error.message);
+                process.exit(1);
+            }
+        }
+        test();
+    " 2>/dev/null; then
+        log_success "App → Temporal connection: OK"
+    else
+        log_error "App → Temporal connection: FAILED"
+        return 1
+    fi
+}
+
+check_end_to_end_workflow() {
+    log_info "Testing end-to-end workflow execution..."
+    
+    # Run a simple workflow test using the existing test script
+    # This will be a simplified version for health checking
+    if docker exec instagram-app-prod node -e "
+        const { Connection, Client } = require('@temporalio/client');
+        async function testWorkflow() {
+            try {
+                const connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS });
+                const client = new Client({ connection });
+                
+                // Just test that we can list workflows (no actual workflow execution for health check)
+                await client.workflow.list();
+                console.log('Workflow client functionality: OK');
+                await connection.close();
+                process.exit(0);
+            } catch (error) {
+                console.error('Workflow test failed:', error.message);
+                process.exit(1);
+            }
+        }
+        testWorkflow();
+    " 2>/dev/null; then
+        log_success "End-to-end workflow client: OK"
+    else
+        log_error "End-to-end workflow client: FAILED"
+        return 1
+    fi
+}
+
+# Main health check routine
+main() {
+    echo ""
+    log_info "🏥 Starting Production Health Check..."
+    echo ""
+    
+    local failed_checks=0
+    
+    # 1. Check container status
+    log_info "📋 Step 1: Checking container status..."
+    local containers=("postgresql" "temporal" "temporal-ui" "app" "downloading-worker" "processing-worker")
+    local container_names=("postgres-prod" "temporal-prod" "temporal-ui-prod" "instagram-app-prod" "downloading-worker-prod" "processing-worker-prod")
+    
+    for i in "${!containers[@]}"; do
+        local service="${containers[$i]}"
+        local container_name="${container_names[$i]}"
+        
+        if ! check_container_running "$service"; then
+            ((failed_checks++))
+        fi
+        
+        if ! check_container_health "$container_name"; then
+            ((failed_checks++))
+        fi
+    done
+    
+    # 2. Check database connectivity (both Temporal and Application databases)
+    log_info "📋 Step 2: Checking database connectivity..."
+    if ! check_postgres_connectivity; then
+        ((failed_checks++))
+    fi
+    
+    # 3. Check Temporal server
+    log_info "📋 Step 3: Checking Temporal server..."
+    if ! check_temporal_server; then
+        ((failed_checks++))
+    fi
+    
+    # 4. Check Temporal UI
+    log_info "📋 Step 4: Checking Temporal UI..."
+    if ! check_temporal_ui; then
+        ((failed_checks++))
+    fi
+    
+    # 5. Check worker connectivity
+    log_info "📋 Step 5: Checking worker connectivity..."
+    if ! check_worker_connectivity "downloading-worker-prod" "video-downloading"; then
+        ((failed_checks++))
+    fi
+    
+    if ! check_worker_connectivity "processing-worker-prod" "video-processing"; then
+        ((failed_checks++))
+    fi
+    
+    # 6. Check app connectivity
+    log_info "📋 Step 6: Checking app connectivity..."
+    if ! check_app_connectivity; then
+        ((failed_checks++))
+    fi
+    
+    # 7. Check end-to-end workflow
+    log_info "📋 Step 7: Checking end-to-end workflow capability..."
+    if ! check_end_to_end_workflow; then
+        ((failed_checks++))
+    fi
+    
+    # Summary
+    echo ""
+    if [ $failed_checks -eq 0 ]; then
+        log_success "🎉 All health checks passed! System is healthy."
+        exit 0
+    else
+        log_error "❌ $failed_checks health check(s) failed. System needs attention."
+        exit 1
+    fi
+}
+
+# Script entry point
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    main "$@"
+fi 
